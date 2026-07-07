@@ -1,0 +1,2002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Translation Initiation</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; }
+  body {
+    background:#03050a; min-height:100vh;
+    display:flex; flex-direction:column; align-items:center;
+    font-family:'Inter','Roboto','Segoe UI','Helvetica Neue',system-ui,sans-serif; overflow-x:hidden;
+    padding:14px 16px 28px; gap:0;
+  }
+  .header { text-align:center; margin-bottom:12px; margin-top:2px; }
+  .eyebrow { font-family:'Space Mono','Roboto Mono','DejaVu Sans Mono','SF Mono',ui-monospace,'Courier New',monospace; font-size:clamp(15px,4.2vw,24px); font-weight:700; letter-spacing:0.5px; color:rgba(220,245,255,0.95); margin-bottom:5px; }
+  .title { font-size:clamp(12px,3.2vw,17px); font-weight:400; color:rgba(0,200,255,0.82); letter-spacing:0.3px; }
+  .title span { color:#00c8ff; font-weight:600; }
+  .subtitle { font-size:clamp(11px,2.6vw,13px); color:rgba(160,220,255,0.72); font-weight:400; letter-spacing:0.6px; margin-top:4px; }
+  .dish-wrap { position:relative; flex-shrink:0; }
+  canvas.main-canvas { display:block; border-radius:50%; cursor:crosshair; }
+
+  .controls-row {
+    width:100%; max-width:520px; display:flex; flex-wrap:wrap; gap:10px;
+    align-items:center; justify-content:center; margin:14px 0 8px;
+  }
+  .proc-pill {
+    display:flex; align-items:center; gap:10px;
+    background:rgba(0,18,52,0.92);
+    border:1px solid rgba(0,200,255,0.22);
+    border-radius:999px; padding:8px 10px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.40), 0 0 0 1px rgba(0,200,255,0.06);
+  }
+  .proc-btn {
+    width:38px; height:38px; border-radius:50%;
+    background:rgba(0,0,0,0.25);
+    border:1.5px solid rgba(255,120,120,0.55);
+    display:flex; align-items:center; justify-content:center;
+    color:rgba(255,170,170,0.92); cursor:pointer; padding:0; flex-shrink:0;
+    transition:border-color 0.15s, box-shadow 0.15s;
+  }
+  .proc-btn:hover { border-color:rgba(255,120,120,0.85); box-shadow:0 0 8px 1px rgba(255,90,90,0.4); }
+  .proc-btn:active { transform:scale(0.94); }
+
+  .reset-btn {
+    background:rgba(0,18,52,0.7); border:1px solid rgba(0,200,255,0.22);
+    color:rgba(150,215,255,0.85); border-radius:999px;
+    padding:9px 16px; font-size:12px; letter-spacing:0.4px; cursor:pointer;
+    font-family:'Space Mono','Roboto Mono',ui-monospace,monospace;
+    transition:border-color 0.15s, color 0.15s;
+  }
+  .reset-btn:hover { border-color:rgba(0,200,255,0.5); color:rgba(200,235,255,0.95); }
+
+  .hint {
+    width:100%; max-width:520px; margin:2px 0 10px;
+    font:500 0.82rem/1.4 'Inter','Roboto','Segoe UI','Helvetica Neue',system-ui,sans-serif;
+    color:rgba(190,215,255,0.9); text-align:center;
+  }
+  .hint .geo-glyph { color:rgba(255,150,150,0.95); font-weight:700; font-size:1.05em; padding:0 1px; }
+  .hint strong { color:#3ad2ff; font-weight:600; }
+
+  .card {
+    width:100%; max-width:520px;
+    background:rgba(5,15,35,0.85); border:1px solid rgba(0,150,220,0.16);
+    border-radius:12px; padding:14px 16px; margin-top:4px;
+    opacity:0; transform:translateY(8px); transition:opacity 0.4s ease, transform 0.4s ease;
+  }
+  .card.show { opacity:1; transform:translateY(0); }
+  .card-name { font-family:'Space Mono','Roboto Mono',ui-monospace,monospace; font-size:12px; font-weight:700; letter-spacing:1.4px; text-transform:uppercase; margin-bottom:6px; color:#f5c542; }
+  .card-detail { font-size:14px; color:rgba(200,225,250,0.85); line-height:1.6; font-weight:300; }
+  .card-detail strong { color:#3ad2ff; font-weight:500; }
+
+  /* Desktop two-column */
+  @media (min-width: 900px) {
+    body {
+      display:grid;
+      grid-template-columns:auto minmax(380px,560px);
+      grid-auto-rows:min-content;
+      align-items:center; align-content:center; justify-content:space-evenly;
+      column-gap:4vw; row-gap:10px; width:100%; max-width:100%;
+      padding:26px 3vw; min-height:100vh;
+    }
+    .dish-wrap { grid-column:1; grid-row:1 / span 5; align-self:center; }
+    .header, .controls-row, .bubble-panel, .hint, .card { grid-column:2; width:100%; }
+    .header { grid-row:1; text-align:left; margin:0 0 10px; }
+    .controls-row { grid-row:2; justify-content:flex-start; }
+    .bubble-panel { grid-row:3; }
+    .hint { grid-row:4; text-align:left; }
+    .card { grid-row:5; }
+    .eyebrow { font-size:clamp(24px,2.6vw,38px); }
+    .title { font-size:clamp(16px,1.5vw,22px); }
+  }
+
+  /* ── Elongation: bubble-picker chain builder ─────────────────────────── */
+  .bubble-panel {
+    width:100%; max-width:520px; display:none;
+    flex-direction:column; align-items:center; gap:8px; margin:2px 0 10px;
+  }
+  .bubble-panel.show { display:flex; }
+  .bubble-row { display:flex; flex-wrap:wrap; gap:7px; justify-content:center; }
+  .bubble {
+    width:34px; height:34px; border-radius:50%;
+    background:rgba(0,18,52,0.85); border:1.5px solid rgba(0,200,255,0.35);
+    color:rgba(190,225,255,0.9); font:700 12px 'Space Mono','Roboto Mono',monospace;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    transition:transform 0.15s, border-color 0.15s;
+  }
+  .bubble:active { transform:scale(0.92); }
+  .bubble.locked { opacity:0.32; cursor:not-allowed; border-color:rgba(255,255,255,0.12); }
+  .bubble.filled { border-width:2px; color:#0a1420; font-size:10.5px; }
+  .bubble.filled.cls-nonpolar { background:#f5d24a; border-color:#c9a52c; }
+  .bubble.filled.cls-polar    { background:#5fd88a; border-color:#2f9e57; }
+  .bubble.filled.cls-acidic   { background:#ff6b6b; border-color:#c73f3f; color:#2a0a0a; }
+  .bubble.filled.cls-basic    { background:#5fa8ff; border-color:#2f6fc9; color:#04101f; }
+  .bubble.filled.stop         { background:#8a8f9c; border-color:#5a5f6c; color:#fff; }
+  .bubble-tip { font-size:11px; color:rgba(170,205,235,0.65); text-align:center; max-width:400px; line-height:1.4; margin:0; }
+  .export-btn {
+    background:rgba(0,18,52,0.9); border:1.5px solid rgba(120,255,190,0.5);
+    color:rgba(180,255,220,0.95); border-radius:999px; padding:9px 22px;
+    font:700 12.5px 'Space Mono','Roboto Mono',monospace; letter-spacing:0.5px; cursor:pointer;
+    transition:opacity 0.15s, border-color 0.15s;
+  }
+  .export-btn:hover:not(:disabled) { border-color:rgba(120,255,190,0.9); }
+  .export-btn:disabled { opacity:0.35; cursor:not-allowed; }
+
+  /* ── Codon picker popup (overlays the dish) ──────────────────────────── */
+  .codon-popup {
+    display:none; flex-direction:column; align-items:center; gap:10px;
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:82%; max-width:280px; padding:18px 16px 16px;
+    background:rgba(4,12,28,0.96); border:1px solid rgba(0,200,255,0.30);
+    border-radius:14px; box-shadow:0 8px 28px rgba(0,0,0,0.55); z-index:5;
+  }
+  .codon-popup.show { display:flex; }
+  .popup-close {
+    position:absolute; top:8px; right:10px; background:none; border:none;
+    color:rgba(200,225,255,0.6); font-size:15px; cursor:pointer; padding:2px 4px;
+  }
+  .popup-title { font:700 12px 'Space Mono','Roboto Mono',monospace; letter-spacing:0.6px; color:rgba(200,230,255,0.9); margin:0; text-align:center; }
+  .codon-display { font:700 22px 'Space Mono','Roboto Mono',monospace; letter-spacing:4px; color:#3ad2ff; margin:0; }
+  .base-options { display:flex; gap:10px; }
+  .base-btn {
+    width:42px; height:42px; border-radius:50%; cursor:pointer;
+    background:rgba(0,18,52,0.9); border:1.5px solid rgba(0,200,255,0.4);
+    color:rgba(210,235,255,0.95); font:700 15px 'Space Mono','Roboto Mono',monospace;
+    transition:transform 0.15s, border-color 0.15s;
+  }
+  .base-btn:active { transform:scale(0.92); }
+  .base-btn:hover { border-color:rgba(0,200,255,0.85); }
+  .popup-result { display:none; flex-direction:column; align-items:center; gap:10px; width:100%; }
+  .popup-result.show { display:flex; }
+  .aa-name { font:600 14px 'Inter','Roboto',system-ui,sans-serif; text-align:center; margin:0; padding:6px 10px; border-radius:8px; }
+  .aa-name.cls-nonpolar { background:rgba(245,210,74,0.18); color:#f5d24a; }
+  .aa-name.cls-polar    { background:rgba(95,216,138,0.18); color:#5fd88a; }
+  .aa-name.cls-acidic   { background:rgba(255,107,107,0.18); color:#ff8a8a; }
+  .aa-name.cls-basic    { background:rgba(95,168,255,0.18); color:#7ab6ff; }
+  .aa-name.stop         { background:rgba(138,143,156,0.22); color:#c7ccd6; }
+  .popup-actions { display:flex; gap:10px; }
+  .popup-btn {
+    border-radius:999px; padding:8px 16px; font:600 12px 'Inter','Roboto',system-ui,sans-serif;
+    cursor:pointer; border:1.5px solid transparent;
+  }
+  .redo-btn { background:rgba(0,0,0,0.25); border-color:rgba(255,180,120,0.45); color:rgba(255,210,170,0.9); }
+  .add-btn  { background:rgba(120,255,190,0.16); border-color:rgba(120,255,190,0.6); color:rgba(180,255,220,0.95); }
+
+  /* ── Chain preview strip (shown inside the card after Export) ────────── */
+  .chain-preview { display:none; flex-wrap:wrap; align-items:center; gap:5px; margin-bottom:12px; }
+  .chain-preview.show { display:flex; }
+  .chain-bead {
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:36px; height:28px; padding:0 9px; border-radius:14px;
+    font:700 11px 'Space Mono','Roboto Mono',monospace;
+    border:1.5px solid rgba(255,255,255,0.22);
+  }
+  .chain-bead.cls-nonpolar { background:#f5d24a; color:#3a2e05; }
+  .chain-bead.cls-polar    { background:#5fd88a; color:#06301a; }
+  .chain-bead.cls-acidic   { background:#ff6b6b; color:#2a0a0a; }
+  .chain-bead.cls-basic    { background:#5fa8ff; color:#04101f; }
+  .chain-bead.stop         { background:#8a8f9c; color:#fff; }
+  .chain-arrow { color:rgba(170,205,235,0.55); font-size:13px; }
+  .codon-col { display:flex; flex-direction:column; align-items:center; gap:3px; padding:4px 3px; border-radius:9px; }
+  .codon-col.active { background:rgba(150,215,255,0.12); box-shadow:0 0 0 1.5px rgba(150,215,255,0.6); }
+  .codon-top { font:700 10px 'Space Mono','Roboto Mono',monospace; color:rgba(190,218,245,0.8); letter-spacing:0.5px; }
+
+  /* ── Elongation controls (Charge / Bind / Bond) ──────────────────────── */
+  .elong-pill { display:none; gap:8px; align-items:center; }
+  .elong-pill.show { display:flex; }
+  .elong-btn {
+    background:rgba(0,18,52,0.9); border:1.5px solid rgba(190,150,255,0.45);
+    color:rgba(220,205,255,0.92); border-radius:999px; padding:8px 14px;
+    font:700 11.5px 'Space Mono','Roboto Mono',monospace; letter-spacing:0.3px; cursor:pointer;
+    transition:opacity 0.15s, border-color 0.15s;
+  }
+  .elong-btn:hover:not(:disabled) { border-color:rgba(190,150,255,0.9); }
+  .elong-btn:disabled { opacity:0.3; cursor:not-allowed; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1 class="eyebrow">DeCodeX Translator</h1>
+  <p class="title">Karyon <span>MK III</span></p>
+  <p class="subtitle">Cytoplasm · 40S → Scanning → 60S → 80S</p>
+</div>
+
+<div class="dish-wrap">
+  <canvas id="mainCanvas" class="main-canvas"></canvas>
+  <div class="codon-popup" id="codonPopup">
+    <button class="popup-close" id="btnClosePopup">✕</button>
+    <p class="popup-title" id="popupTitle">Residue</p>
+    <p class="codon-display" id="codonDisplay">_ _ _</p>
+    <div class="base-options" id="baseOptions">
+      <button class="base-btn" data-base="A">A</button>
+      <button class="base-btn" data-base="U">U</button>
+      <button class="base-btn" data-base="G">G</button>
+      <button class="base-btn" data-base="C">C</button>
+    </div>
+    <div class="popup-result" id="popupResult">
+      <p class="aa-name" id="aaName"></p>
+      <div class="popup-actions">
+        <button class="popup-btn redo-btn" id="btnRedoResidue">Redo</button>
+        <button class="popup-btn add-btn" id="btnAddResidue">Add</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="controls-row">
+  <div class="proc-pill" id="initControls">
+    <button class="proc-btn" id="btnAdvance" title="Advance">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="6"/>
+        <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/>
+        <line x1="12" y1="1.5" x2="12" y2="5"/>
+        <line x1="12" y1="19" x2="12" y2="22.5"/>
+        <line x1="1.5" y1="12" x2="5" y2="12"/>
+        <line x1="19" y1="12" x2="22.5" y2="12"/>
+      </svg>
+    </button>
+  </div>
+  <div class="elong-pill" id="elongControls">
+    <button class="elong-btn" id="btnCharge">Charge</button>
+    <button class="elong-btn" id="btnBind" disabled>Bind</button>
+    <button class="elong-btn" id="btnBond" disabled>Bond</button>
+  </div>
+  <button class="reset-btn" id="btnReset">Reset</button>
+</div>
+
+<div class="bubble-panel" id="bubblePanel">
+  <div class="bubble-row" id="bubbleRow"></div>
+  <p class="bubble-tip">Tap a bubble to build that residue's codon. Fill left-to-right — Export needs no gaps.</p>
+  <button class="export-btn" id="btnExport" disabled>Export Chain</button>
+</div>
+
+<p class="hint" id="hint">Click a <strong>ribosome</strong> to navigate the mRNA to it</p>
+
+<div class="card" id="card">
+  <div class="chain-preview" id="chainPreview"></div>
+  <p class="card-name" id="cardName">Translation</p>
+  <p class="card-detail" id="cardDetail">The ribosome assembles on the mRNA to begin protein synthesis.</p>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+//  STANDALONE TRANSLATION INITIATION
+//  The mRNA is already in the cytoplasm (no cell / nucleus / export).
+//  Interaction: click a ribosome → the mRNA glides to it → then the ⌖
+//  button advances one stage per click: magnify → 40S binds cap →
+//  scan for AUG → 60S joins → 80S formed → translation begins.
+//  The drawing + state-machine code is adapted from the full gene-
+//  expression simulator so the visuals & timing match.
+// ═══════════════════════════════════════════════════════════════════════
+
+const mainCanvas = document.getElementById('mainCanvas');
+const ctx = mainCanvas.getContext('2d');
+let SIZE, CX, CY, dpr = 1, animT = 0;
+let sceneZoom = 1; // eases out while charging plays, back to 1 once done
+
+// A single scene scale used everywhere (stands in for the old nucR).
+let nucR = 200;
+
+// ── Canvas sizing (width-driven, stable on mobile) ──────────────────────
+function computeSize(){
+  const winH = window.innerHeight || document.documentElement.clientHeight || 600;
+  const winW = window.innerWidth  || document.documentElement.clientWidth  || 360;
+  const maxH = winH*0.52, maxW = Math.min(winW - 20, 600);
+  const size = Math.round(Math.min(maxH, maxW));
+  return (size && size > 40) ? size : 320;
+}
+function applySize(){
+  SIZE = computeSize(); CX = SIZE/2; CY = SIZE/2;
+  nucR = SIZE * 0.5;   // scene scale relative to the dish
+  const baseDpr = window.devicePixelRatio || 1;
+  const SUPERSAMPLE = baseDpr >= 3 ? 0.9 : (baseDpr >= 2 ? 1.05 : 1.4);
+  dpr = Math.min(baseDpr * SUPERSAMPLE, 2.0);
+  mainCanvas.width  = Math.round(SIZE * dpr);
+  mainCanvas.height = Math.round(SIZE * dpr);
+  mainCanvas.style.width = SIZE + 'px';
+  mainCanvas.style.height = SIZE + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (ctx.imageSmoothingEnabled !== undefined) ctx.imageSmoothingQuality = 'high';
+}
+
+// ── The mRNA — a static curved strand of nodes in the cytoplasm. node[0]
+//    is the 5' m⁷G cap; the rest form the body the 40S scans across. This
+//    plays the same role the export-chain did in the full sim, so the
+//    translation machine can use it unchanged. ──
+let exportChain = null;
+function buildMrna(){
+  const nodes = [];
+  const N = 22;
+  // A gentle S-curve sitting in the lower-left of the dish, cap at the 5' end.
+  const startX = CX - nucR*0.62, startY = CY + nucR*0.30;
+  for (let i=0;i<N;i++){
+    const t = i/(N-1);
+    const x = startX + t*nucR*1.15;
+    const y = startY - Math.sin(t*Math.PI*1.15)*nucR*0.34 + Math.sin(t*Math.PI*3)*nucR*0.04;
+    nodes.push({ x, y, px:x, py:y, rax:x, ray:y, kind: i > N-5 ? 'tail' : 'body' });
+  }
+  let totalLen=0;
+  for(let i=1;i<nodes.length;i++) totalLen += Math.hypot(nodes[i].x-nodes[i-1].x, nodes[i].y-nodes[i-1].y);
+  const restLen = totalLen/Math.max(1, nodes.length-1);
+  exportChain = { nodes, restLen };
+}
+
+// ── Ribosomes — a few free-floating in the cytoplasm, easy to click ──────
+const RIBOSOME_IDLE = 'idle', RIBOSOME_BOUND = 'bound';
+let ribosomes = null;
+function initRibosomes(){
+  const spots = [
+    { x: CX + nucR*0.42, y: CY - nucR*0.46 },
+    { x: CX + nucR*0.60, y: CY + nucR*0.28 },
+    { x: CX - nucR*0.10, y: CY - nucR*0.60 },
+  ];
+  ribosomes = spots.map((s,i) => ({
+    x:s.x, y:s.y, radius: nucR*0.11, state: RIBOSOME_IDLE,
+    rotation: i*1.3, rotationSpeed: (i%2?1:-1)*0.0028,
+  }));
+}
+
+// ── mRNA docking to a tapped ribosome ───────────────────────────────────
+let mrnaBindState = 'FREE';    // FREE → DOCKING → HOVERING → TRANSLATING
+let boundRibosome = null;
+let dockStateT = 0, hoverStateT = 0;
+let dockGuide = null; // { x0,y0, x1,y1, len, t } — straight guide line the head follows to the ribosome
+const DOCK_GLIDE_SPEED = 0.010; // ×nucR/frame — how fast the head advances along the guide line
+const HOVER_FRAMES = 50;
+const CYTO_CONSTRAINT_ITERS = 7;      // relaxation passes keeping the chain a fixed-length strand
+const REST_STIFFNESS = 0.06, REST_DAMPING = 0.72; // spring-toward-rest-anchor tuning
+const RIPPLE_AMP = 0.012, RIPPLE_SPEED = 0.05, RIPPLE_WAVELENGTH = 0.6; // idle breathing shimmer
+
+// World-space position of a ribosome's "head" — the small subunit lobe,
+// at local (0, -radius*0.62) before rotation. This is the actual docking
+// target, not the ribosome's raw centre.
+function ribosomeHeadPos(r){
+  return { x: r.x + r.radius*0.62*Math.sin(r.rotation), y: r.y - r.radius*0.62*Math.cos(r.rotation) };
+}
+// A point ON the head lobe's own elliptical boundary, in the direction of
+// whatever's approaching — so the mRNA visibly lands on the ribosome's
+// outside rather than converging through its middle.
+function ribosomeHeadSurfacePoint(r, fromX, fromY){
+  const head = ribosomeHeadPos(r);
+  const dx = fromX-head.x, dy = fromY-head.y;
+  const cosA=Math.cos(-r.rotation), sinA=Math.sin(-r.rotation);
+  let lx = dx*cosA - dy*sinA, ly = dx*sinA + dy*cosA;
+  const a=r.radius*0.62, b=r.radius*0.48; // matches the head ellipse drawn in drawIntactRibosome
+  const scale = Math.hypot(lx/a, ly/b) || 1;
+  lx/=scale; ly/=scale;
+  const cosB=Math.cos(r.rotation), sinB=Math.sin(r.rotation);
+  const wx = lx*cosB - ly*sinB, wy = lx*sinB + ly*cosB;
+  return { x: head.x+wx, y: head.y+wy };
+}
+
+function tapAt(px, py){
+  if (mrnaBindState !== 'FREE' || !ribosomes) return;
+  for (const r of ribosomes){
+    if (Math.hypot(px - r.x, py - r.y) <= r.radius*1.5){
+      boundRibosome = r;
+      mrnaBindState = 'DOCKING'; dockStateT = 0;
+      const cap = exportChain.nodes[0];
+      const surf = ribosomeHeadSurfacePoint(r, cap.rax, cap.ray);
+      dockGuide = { x0:cap.rax, y0:cap.ray, x1:surf.x, y1:surf.y, len: Math.hypot(surf.x-cap.rax, surf.y-cap.ray), t:0 };
+      setHint('The mRNA glides to the ribosome…');
+      return;
+    }
+  }
+}
+
+// ── Guidance hint + card ────────────────────────────────────────────────
+function setHint(html){ const el=document.getElementById('hint'); if(el) el.innerHTML=html; }
+function setCard(name, detail){
+  const c=document.getElementById('card');
+  const n=document.getElementById('cardName'), d=document.getElementById('cardDetail');
+  if(n) n.textContent=name; if(d) d.innerHTML=detail;
+  if(c) c.classList.add('show');
+}
+
+// ── Translation state machine (adapted, unchanged logic) ────────────────
+let translationInitiationStarted = false;
+let translation = {
+  step:'IDLE', stepT:0,
+  small40S:{x:0,y:0}, large60S:{x:0,y:0},
+  small40Target:null, large60Target:null,
+  scanBead:0, augFound:false, augLetters:0, augLabelAlpha:1, augLockT:0, eightyS:false,
+};
+
+const SPLIT_EASE=0.06, SMALL_BIND_FRAMES=150, SMALL_BIND_EASE=0.035;
+const SCAN_FRAMES_PER_BEAD=70, SCAN_EASE=0.055, SCAN_SETTLE=40;
+const AUG_LABEL_HOLD=70, AUG_LABEL_FADE=45;
+const JOIN_EASE=0.05, JOIN_FRAMES=150, EIGHTYS_BEAT2_DELAY=75;
+
+let captionText = '', captionAlpha = 0, captionHold = 0;
+function showTranslationCaption(msg){ captionText=msg; captionAlpha=1; captionHold=140; }
+
+function codonBeadPositions(){
+  if (!exportChain || !exportChain.nodes || exportChain.nodes.length < 2) return [];
+  const nodes = exportChain.nodes, out = [];
+  const bodyStart = 2;
+  const step = Math.max(1, Math.floor((nodes.length - bodyStart) / 6));
+  for (let k=0;k<4;k++){ const idx=bodyStart+k*step; if(idx<nodes.length) out.push({x:nodes[idx].x,y:nodes[idx].y,idx}); }
+  return out;
+}
+
+function startTranslationInitiation(){
+  if (mrnaBindState !== 'TRANSLATING') return;
+  if (!translationInitiationStarted){
+    translationInitiationStarted = true;
+    const r = boundRibosome, cap0 = exportChain.nodes[0];
+    let dirX=(cap0.x-r.x), dirY=(cap0.y-r.y); const dl=Math.hypot(dirX,dirY)||1; dirX/=dl; dirY/=dl;
+    translation.small40S={x:0,y:0}; translation.large60S={x:0,y:0};
+    translation.small40Target={x:-dirX*3.2,y:-dirY*3.2};
+    translation.large60Target={x:1.3,y:0.6};
+    translation.step='SPLIT_WAITING'; translation.stepT=0;
+    setCard('Ribosome separates','The ribosome separates into its two subunits — the small <strong>40S</strong> and large <strong>60S</strong>. The small one binds the mRNA first.');
+    setHint('Click <span class="geo-glyph">⌖</span> to begin <strong>40S</strong> subunit attachment');
+    return;
+  }
+  if (translation.step==='SPLIT_WAITING'){
+    translation.step='SMALL_SUBUNIT_BINDING'; translation.stepT=0;
+    setCard('40S binds the 5′ cap','The <strong>40S subunit</strong> travels to the mRNA\'s <strong>5′ m⁷G cap</strong> and seats onto it, ready to scan for the start codon.');
+    setHint('Click <span class="geo-glyph">⌖</span> to scan for the start codon');
+    return;
+  }
+  if (translation.step==='SMALL_BOUND'){
+    translation.step='SCANNING'; translation.stepT=0; translation.scanBead=0;
+    setCard('Scanning for AUG','The <strong>40S subunit</strong> moves along the mRNA, reading codon by codon until it finds the first <strong>AUG</strong>.');
+    setHint('Once <strong>AUG</strong> is found, click <span class="geo-glyph">⌖</span> for <strong>60S</strong> subunit attachment');
+    return;
+  }
+  if (translation.step==='AUG_FOUND'){
+    translation.step='LARGE_SUBUNIT_JOINING'; translation.stepT=0;
+    setCard('60S joins','The <strong>60S subunit</strong> moves in to join the 40S, assembling the complete <strong>80S ribosome</strong>.');
+    setHint('The <strong>80S ribosome</strong> is assembled — translation begins');
+    return;
+  }
+}
+
+function updateTranslation(){
+  if (!translationInitiationStarted || !boundRibosome || !exportChain) return;
+  const r = boundRibosome, rad = r.radius;
+
+  if (translation.step==='SPLIT_WAITING'){
+    const t40=translation.small40Target, t60=translation.large60Target;
+    if(t40){ translation.small40S.x+=(t40.x-translation.small40S.x)*SPLIT_EASE; translation.small40S.y+=(t40.y-translation.small40S.y)*SPLIT_EASE; }
+    if(t60){ translation.large60S.x+=(t60.x-translation.large60S.x)*SPLIT_EASE; translation.large60S.y+=(t60.y-translation.large60S.y)*SPLIT_EASE; }
+    return;
+  }
+  if (translation.step==='SMALL_SUBUNIT_BINDING'){
+    translation.stepT++;
+    const cap=exportChain.nodes[0];
+    const capOffX=(cap.x-r.x)/rad, capOffY=(cap.y-r.y)/rad;
+    const targetX=capOffX, targetY=capOffY-0.5;
+    translation.small40S.x+=(targetX-translation.small40S.x)*SMALL_BIND_EASE;
+    translation.small40S.y+=(targetY-translation.small40S.y)*SMALL_BIND_EASE;
+    const w={x:1.3,y:0.6};
+    translation.large60S.x+=(w.x-translation.large60S.x)*SMALL_BIND_EASE;
+    translation.large60S.y+=(w.y-translation.large60S.y)*SMALL_BIND_EASE;
+    if(translation.stepT>=SMALL_BIND_FRAMES){ translation.step='SMALL_BOUND'; translation.stepT=0; }
+  }
+  if (translation.step==='SCANNING'){
+    translation.stepT++;
+    const beads=codonBeadPositions();
+    if(beads.length>=4){
+      const idx=Math.min(2,Math.floor(translation.stepT/SCAN_FRAMES_PER_BEAD));
+      translation.scanBead=idx;
+      translation.augLetters=Math.max(translation.augLetters||0, idx+1);
+      const target=beads[idx];
+      const tx=(target.x-r.x)/rad, ty=(target.y-r.y)/rad-0.5;
+      translation.small40S.x+=(tx-translation.small40S.x)*SCAN_EASE;
+      translation.small40S.y+=(ty-translation.small40S.y)*SCAN_EASE;
+      const w={x:1.3,y:0.6};
+      translation.large60S.x+=(w.x-translation.large60S.x)*SCAN_EASE;
+      translation.large60S.y+=(w.y-translation.large60S.y)*SCAN_EASE;
+      if(idx===2 && translation.stepT>=SCAN_FRAMES_PER_BEAD*2+SCAN_SETTLE){
+        translation.step='AUG_READING'; translation.stepT=0; translation.augLabelAlpha=1;
+      }
+    }
+  }
+  if (translation.step==='AUG_READING'){
+    translation.stepT++;
+    const beads=codonBeadPositions();
+    if(beads.length>=4){
+      const target=beads[2];
+      const tx=(target.x-r.x)/rad, ty=(target.y-r.y)/rad-0.5;
+      translation.small40S.x+=(tx-translation.small40S.x)*0.12;
+      translation.small40S.y+=(ty-translation.small40S.y)*0.12;
+    }
+    if(!translation.augFound){
+      translation.augFound=true; translation.augLetters=3;
+      showTranslationCaption('Start Codon Detected');
+      setCard('Start codon — AUG','The <strong>40S subunit</strong> read <strong>A-U-G</strong> across the first three codon positions and locked onto the <strong>start codon</strong>, where protein synthesis begins.');
+      translation.augLockT=translation.stepT;
+    }
+    const since=translation.stepT-(translation.augLockT||0);
+    if(since>AUG_LABEL_HOLD) translation.augLabelAlpha=Math.max(0,1-(since-AUG_LABEL_HOLD)/AUG_LABEL_FADE);
+    if(translation.augLabelAlpha<=0.001){ translation.step='AUG_FOUND'; translation.stepT=0; }
+  }
+  if (translation.step==='LARGE_SUBUNIT_JOINING'){
+    translation.stepT++;
+    const beads=codonBeadPositions();
+    if(beads.length>=4){
+      const g=beads[2];
+      const tx=(g.x-r.x)/rad, ty=(g.y-r.y)/rad-0.5;
+      translation.small40S.x+=(tx-translation.small40S.x)*0.10;
+      translation.small40S.y+=(ty-translation.small40S.y)*0.10;
+      const join={x:tx,y:ty+1.15};
+      translation.large60S.x+=(join.x-translation.large60S.x)*JOIN_EASE;
+      translation.large60S.y+=(join.y-translation.large60S.y)*JOIN_EASE;
+      const d=Math.hypot(translation.large60S.x-join.x, translation.large60S.y-join.y);
+      if(d<0.05 || translation.stepT>JOIN_FRAMES){
+        translation.step='EIGHTYS_FORMED'; translation.stepT=0; translation.eightyS=true;
+        showTranslationCaption('80S ribosome formed');
+        setCard('80S ribosome assembled','The <strong>60S subunit</strong> joined the <strong>40S</strong>, sandwiching the mRNA between them to form the complete <strong>80S ribosome</strong>.');
+      }
+    }
+  }
+  if (translation.step==='EIGHTYS_FORMED'){
+    translation.stepT++;
+    const beads=codonBeadPositions();
+    if(beads.length>=4){
+      const g=beads[2];
+      const tx=(g.x-r.x)/rad, ty=(g.y-r.y)/rad-0.5;
+      translation.small40S.x+=(tx-translation.small40S.x)*0.10;
+      translation.small40S.y+=(ty-translation.small40S.y)*0.10;
+      const join={x:tx,y:ty+1.15};
+      translation.large60S.x+=(join.x-translation.large60S.x)*0.12;
+      translation.large60S.y+=(join.y-translation.large60S.y)*0.12;
+    }
+    if(translation.stepT===EIGHTYS_BEAT2_DELAY) showTranslationCaption('Translation begins');
+    if(translation.stepT===EIGHTYS_BEAT2_DELAY) unlockElongationUI();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  ELONGATION — Phase 1: chain-length bubble picker (data + UI only).
+//  Ten numbered bubbles appear once "Translation begins" fires. Tapping an
+//  unlocked bubble opens a popup: three nucleotide taps (A/U/G/C each)
+//  assemble a codon, looked up against the full genetic code, producing an
+//  amino acid (or a stop). Bubbles fill in any order and are re-editable
+//  right up until Export. No tRNA/ribosome animation yet — that's Phase 2+.
+// ═══════════════════════════════════════════════════════════════════════
+
+// Full standard genetic code (RNA codons). cls = chemical class, used for
+// the bubble/label colour coding (nonpolar / polar / acidic / basic).
+const CODON_TABLE = {
+  UUU:{code:'Phe',name:'Phenylalanine',cls:'nonpolar'}, UUC:{code:'Phe',name:'Phenylalanine',cls:'nonpolar'},
+  UUA:{code:'Leu',name:'Leucine',cls:'nonpolar'}, UUG:{code:'Leu',name:'Leucine',cls:'nonpolar'},
+  CUU:{code:'Leu',name:'Leucine',cls:'nonpolar'}, CUC:{code:'Leu',name:'Leucine',cls:'nonpolar'},
+  CUA:{code:'Leu',name:'Leucine',cls:'nonpolar'}, CUG:{code:'Leu',name:'Leucine',cls:'nonpolar'},
+  AUU:{code:'Ile',name:'Isoleucine',cls:'nonpolar'}, AUC:{code:'Ile',name:'Isoleucine',cls:'nonpolar'}, AUA:{code:'Ile',name:'Isoleucine',cls:'nonpolar'},
+  AUG:{code:'Met',name:'Methionine',cls:'nonpolar'},
+  GUU:{code:'Val',name:'Valine',cls:'nonpolar'}, GUC:{code:'Val',name:'Valine',cls:'nonpolar'},
+  GUA:{code:'Val',name:'Valine',cls:'nonpolar'}, GUG:{code:'Val',name:'Valine',cls:'nonpolar'},
+  UCU:{code:'Ser',name:'Serine',cls:'polar'}, UCC:{code:'Ser',name:'Serine',cls:'polar'},
+  UCA:{code:'Ser',name:'Serine',cls:'polar'}, UCG:{code:'Ser',name:'Serine',cls:'polar'},
+  AGU:{code:'Ser',name:'Serine',cls:'polar'}, AGC:{code:'Ser',name:'Serine',cls:'polar'},
+  CCU:{code:'Pro',name:'Proline',cls:'nonpolar'}, CCC:{code:'Pro',name:'Proline',cls:'nonpolar'},
+  CCA:{code:'Pro',name:'Proline',cls:'nonpolar'}, CCG:{code:'Pro',name:'Proline',cls:'nonpolar'},
+  ACU:{code:'Thr',name:'Threonine',cls:'polar'}, ACC:{code:'Thr',name:'Threonine',cls:'polar'},
+  ACA:{code:'Thr',name:'Threonine',cls:'polar'}, ACG:{code:'Thr',name:'Threonine',cls:'polar'},
+  GCU:{code:'Ala',name:'Alanine',cls:'nonpolar'}, GCC:{code:'Ala',name:'Alanine',cls:'nonpolar'},
+  GCA:{code:'Ala',name:'Alanine',cls:'nonpolar'}, GCG:{code:'Ala',name:'Alanine',cls:'nonpolar'},
+  UAU:{code:'Tyr',name:'Tyrosine',cls:'polar'}, UAC:{code:'Tyr',name:'Tyrosine',cls:'polar'},
+  UAA:{code:'Stop',name:'Stop codon (Ochre)',stop:true}, UAG:{code:'Stop',name:'Stop codon (Amber)',stop:true}, UGA:{code:'Stop',name:'Stop codon (Opal)',stop:true},
+  CAU:{code:'His',name:'Histidine',cls:'basic'}, CAC:{code:'His',name:'Histidine',cls:'basic'},
+  CAA:{code:'Gln',name:'Glutamine',cls:'polar'}, CAG:{code:'Gln',name:'Glutamine',cls:'polar'},
+  AAU:{code:'Asn',name:'Asparagine',cls:'polar'}, AAC:{code:'Asn',name:'Asparagine',cls:'polar'},
+  AAA:{code:'Lys',name:'Lysine',cls:'basic'}, AAG:{code:'Lys',name:'Lysine',cls:'basic'},
+  GAU:{code:'Asp',name:'Aspartate',cls:'acidic'}, GAC:{code:'Asp',name:'Aspartate',cls:'acidic'},
+  GAA:{code:'Glu',name:'Glutamate',cls:'acidic'}, GAG:{code:'Glu',name:'Glutamate',cls:'acidic'},
+  UGU:{code:'Cys',name:'Cysteine',cls:'polar'}, UGC:{code:'Cys',name:'Cysteine',cls:'polar'},
+  UGG:{code:'Trp',name:'Tryptophan',cls:'nonpolar'},
+  CGU:{code:'Arg',name:'Arginine',cls:'basic'}, CGC:{code:'Arg',name:'Arginine',cls:'basic'}, CGA:{code:'Arg',name:'Arginine',cls:'basic'},
+  CGG:{code:'Arg',name:'Arginine',cls:'basic'}, AGA:{code:'Arg',name:'Arginine',cls:'basic'}, AGG:{code:'Arg',name:'Arginine',cls:'basic'},
+  GGU:{code:'Gly',name:'Glycine',cls:'nonpolar'}, GGC:{code:'Gly',name:'Glycine',cls:'nonpolar'},
+  GGA:{code:'Gly',name:'Glycine',cls:'nonpolar'}, GGG:{code:'Gly',name:'Glycine',cls:'nonpolar'},
+};
+
+const CHAIN_LEN = 10;
+let chainSlots = new Array(CHAIN_LEN).fill(null); // each: null | {codon, code, name, stop, cls}
+let chainLockedFrom = CHAIN_LEN; // bubbles at/after this index are locked (a stop codon was placed before them)
+let chainHasGap = false;         // a filled bubble sits after an empty one, within the unlocked range
+let chainExported = false;
+let activeBubbleIndex = null;    // which bubble the popup is currently editing
+let popupBases = [];             // bases picked so far in the open popup, e.g. ['U','U']
+
+// Re-derives lock/gap state from scratch every time any bubble changes —
+// deliberately not incremental, so there's nothing to get out of sync.
+function recomputeChainLock(){
+  chainLockedFrom = CHAIN_LEN;
+  for (let i=0;i<CHAIN_LEN;i++){
+    if (chainSlots[i] && chainSlots[i].stop){ chainLockedFrom = i+1; break; }
+  }
+  chainHasGap = false;
+  let seenGap = false;
+  for (let i=0;i<chainLockedFrom;i++){
+    if (!chainSlots[i]) seenGap = true;
+    else if (seenGap){ chainHasGap = true; break; }
+  }
+}
+
+function renderBubbleRow(){
+  const row = document.getElementById('bubbleRow');
+  if (!row) return;
+  row.innerHTML = '';
+  for (let i=0;i<CHAIN_LEN;i++){
+    const slot = chainSlots[i];
+    const locked = i >= chainLockedFrom;
+    const btn = document.createElement('button');
+    btn.className = 'bubble' + (locked?' locked':'') + (slot?' filled '+(slot.stop?'stop':'cls-'+slot.cls):'');
+    btn.textContent = slot ? (slot.stop ? '■' : slot.code) : String(i+1);
+    btn.disabled = locked || chainExported;
+    btn.addEventListener('click', ()=>openBubblePopup(i));
+    row.appendChild(btn);
+  }
+  const exportBtn = document.getElementById('btnExport');
+  if (exportBtn){
+    const anyFilled = chainSlots.slice(0,chainLockedFrom).some(s=>s);
+    exportBtn.disabled = !anyFilled || chainHasGap || chainExported;
+  }
+}
+
+function unlockElongationUI(){
+  const init = document.getElementById('initControls');
+  const panel = document.getElementById('bubblePanel');
+  if (init) init.style.display = 'none';
+  if (panel) panel.classList.add('show');
+  renderBubbleRow();
+}
+
+function openBubblePopup(i){
+  if (i >= chainLockedFrom || chainExported) return;
+  activeBubbleIndex = i; popupBases = [];
+  document.getElementById('popupTitle').textContent = 'Residue ' + (i+2) + ' — position ' + (i+1) + ' after Met';
+  updatePopupCodonDisplay();
+  document.getElementById('baseOptions').style.display = 'flex';
+  document.getElementById('popupResult').classList.remove('show');
+  document.getElementById('codonPopup').classList.add('show');
+}
+function closeBubblePopup(){
+  document.getElementById('codonPopup').classList.remove('show');
+  activeBubbleIndex = null; popupBases = [];
+}
+function updatePopupCodonDisplay(){
+  const letters = ['_','_','_'];
+  popupBases.forEach((b,idx)=>{ letters[idx]=b; });
+  document.getElementById('codonDisplay').textContent = letters.join(' ');
+}
+function pickPopupBase(b){
+  if (popupBases.length>=3) return;
+  popupBases.push(b);
+  updatePopupCodonDisplay();
+  if (popupBases.length===3){
+    const codon = popupBases.join('');
+    const info = CODON_TABLE[codon];
+    document.getElementById('baseOptions').style.display = 'none';
+    const nameEl = document.getElementById('aaName');
+    nameEl.textContent = info.stop ? (info.name + ' — chain ends here') : (info.name + ' (' + info.code + ')');
+    nameEl.className = 'aa-name ' + (info.stop ? 'stop' : 'cls-'+info.cls);
+    const resultEl = document.getElementById('popupResult');
+    resultEl.classList.add('show');
+    resultEl._pendingCodon = codon; resultEl._pendingInfo = info;
+  }
+}
+function redoPopup(){
+  popupBases = [];
+  updatePopupCodonDisplay();
+  document.getElementById('popupResult').classList.remove('show');
+  document.getElementById('baseOptions').style.display = 'flex';
+}
+function confirmAddResidue(){
+  const resultEl = document.getElementById('popupResult');
+  const codon = resultEl._pendingCodon, info = resultEl._pendingInfo;
+  if (activeBubbleIndex==null || !codon) return;
+  chainSlots[activeBubbleIndex] = { codon, code:info.code, name:info.name, stop:!!info.stop, cls:info.cls||null };
+  recomputeChainLock();
+  renderBubbleRow();
+  closeBubblePopup();
+}
+
+function renderChainPreview(){
+  const el = document.getElementById('chainPreview');
+  if (!el) return;
+  el.innerHTML = '';
+  const built = chainSlots.slice(0,chainLockedFrom).filter(s=>s);
+  const seq = [{codon:'AUG', code:'Met', cls:'nonpolar', stop:false}].concat(built);
+  const activeSeqIdx = (chainExported && charging.step!=='IDLE') ? elongIndex+1 : -1;
+  seq.forEach((s,i)=>{
+    const col = document.createElement('span');
+    col.className = 'codon-col' + (i===activeSeqIdx ? ' active' : '');
+    const top = document.createElement('span');
+    top.className = 'codon-top'; top.textContent = s.codon;
+    const bottom = document.createElement('span');
+    bottom.className = 'chain-bead ' + (s.stop ? 'stop' : 'cls-'+s.cls);
+    bottom.textContent = s.stop ? 'Stop' : s.code;
+    col.appendChild(top); col.appendChild(bottom);
+    el.appendChild(col);
+  });
+  el.classList.add('show');
+}
+
+(function wireElongationUI(){
+  const baseOptions = document.getElementById('baseOptions');
+  if (baseOptions) baseOptions.addEventListener('click', e=>{
+    const b = e.target.closest('.base-btn'); if (b) pickPopupBase(b.dataset.base);
+  });
+  const addBtn = document.getElementById('btnAddResidue'); if (addBtn) addBtn.addEventListener('click', confirmAddResidue);
+  const redoBtn = document.getElementById('btnRedoResidue'); if (redoBtn) redoBtn.addEventListener('click', redoPopup);
+  const closeBtn = document.getElementById('btnClosePopup'); if (closeBtn) closeBtn.addEventListener('click', closeBubblePopup);
+  const exportBtn = document.getElementById('btnExport');
+  if (exportBtn) exportBtn.addEventListener('click', ()=>{
+    if (chainExported) return;
+    chainExported = true;
+    renderBubbleRow();
+    const built = chainSlots.slice(0,chainLockedFrom).filter(s=>s);
+    const names = ['Met'].concat(built.map(s=> s.stop ? 'Stop' : s.code));
+    setCard('Chain planned', 'Sequence: <strong>' + names.join(' – ') + '</strong>. Next up: charging, anticodon binding, and bond formation for each residue.');
+    setHint('Tap <span class="geo-glyph">⌖</span> <strong>Charge tRNA</strong> to bring in the first amino acid.');
+    renderChainPreview();
+    elongChain = built; elongIndex = 0;
+    extendMrnaForChain();
+    initPolypeptide();
+    const nextIsStop = updateChargeButtonForCurrentResidue();
+    if (nextIsStop){
+      setCard('Stop codon reached', 'A stop codon carries no amino acid \u2014 no tRNA has a matching anticodon for it. Instead it signals the end of the message. Tap Release to terminate translation.');
+      setHint('Stop codon reached \u2014 tap <strong>Release</strong> to terminate translation.');
+    }
+    const panel = document.getElementById('bubblePanel');
+    const elong = document.getElementById('elongControls');
+    if (panel) panel.classList.remove('show');
+    if (elong) elong.classList.add('show');
+  });
+})();
+
+function resetElongationUI(){
+  chainSlots = new Array(CHAIN_LEN).fill(null);
+  chainLockedFrom = CHAIN_LEN; chainHasGap = false; chainExported = false;
+  activeBubbleIndex = null; popupBases = [];
+  elongChain = []; elongIndex = 0;
+  charging = { step:'IDLE', stepT:0 };
+  binding = { step:'IDLE', stepT:0 };
+  bonding = { step:'IDLE', stepT:0 };
+  translocation = { codonIndex:0 };
+  polypeptide = []; peptideDir = { x:0, y:1 };
+  termination = { step:'IDLE', stepT:0 };
+  const init = document.getElementById('initControls');
+  const panel = document.getElementById('bubblePanel');
+  const preview = document.getElementById('chainPreview');
+  const elong = document.getElementById('elongControls');
+  if (init) init.style.display = '';
+  if (panel) panel.classList.remove('show');
+  if (preview){ preview.classList.remove('show'); preview.innerHTML=''; }
+  if (elong) elong.classList.remove('show');
+  const chargeBtn = document.getElementById('btnCharge'); if (chargeBtn){ chargeBtn.disabled = false; chargeBtn.textContent = 'Charge'; }
+  const bindBtn = document.getElementById('btnBind'); if (bindBtn) bindBtn.disabled = true;
+  const bondBtn = document.getElementById('btnBond'); if (bondBtn) bondBtn.disabled = true;
+  closeBubblePopup();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  ELONGATION — Phase 2: aminoacyl-tRNA charging.
+//  Reference composition: free amino acid + uncharged tRNA drift in from
+//  the cytoplasm to a synthetase enzyme; ATP is spent (→ AMP + 2 Pi); a
+//  covalent bond forms between the amino acid and the tRNA's 3′ end; the
+//  charged tRNA is released and the enzyme resets. The amino acid identity
+//  and its sphere colour both come straight from the chain the person
+//  built in Phase 1 — nothing here is hardcoded to one amino acid.
+// ═══════════════════════════════════════════════════════════════════════
+
+let elongChain = [];  // ordered residues after Met, snapshotted at Export
+let elongIndex = 0;   // which residue in elongChain is currently being charged
+
+// rgb() arrays matching the same chemical-class colours used for the
+// bubbles/preview strip, so a charged amino acid reads as the same thing.
+const AA_CLASS_RGB = {
+  nonpolar: [245,210,74], polar: [95,216,138], acidic: [255,107,107], basic: [95,168,255],
+};
+
+const CHARGE_DRIFT_FRAMES = 240, CHARGE_ATP_HOLD = 220, CHARGE_BOND_FRAMES = 170, CHARGE_RELEASE_FRAMES = 200;
+let charging = { step:'IDLE', stepT:0 };
+// positions (×nucR offsets from dish centre, filled in lazily once nucR is known)
+let synPos = null, aaStart = null, trnaStart = null;
+
+function synthetaseGeometry(){
+  if (!synPos || synPos._nucR !== nucR){
+    synPos = { x: CX, y: CY + nucR*0.80, _nucR: nucR };
+    aaStart = { x: CX + nucR*0.95, y: CY + nucR*0.55 };
+    trnaStart = { x: CX - nucR*0.95, y: CY + nucR*0.55 };
+  }
+  const R = nucR*0.20;
+  return {
+    cx: synPos.x, cy: synPos.y, R,
+    leftNotch:  { x: synPos.x - R*0.55, y: synPos.y - R*0.60 },
+    rightNotch: { x: synPos.x + R*0.55, y: synPos.y - R*0.60 },
+  };
+}
+
+function startCharging(){
+  if (charging.step !== 'IDLE') return;
+  if (elongIndex >= elongChain.length) return;
+  const residue = elongChain[elongIndex];
+  if (!residue || residue.stop) return; // stop codons are never charged
+  charging = { step:'DRIFT_IN', stepT:0, residue };
+  const btn = document.getElementById('btnCharge'); if (btn) btn.disabled = true;
+  setCard('Meet the tRNA', 'Every tRNA folds into a cloverleaf. Its <strong>acceptor stem</strong> (top) is where an amino acid attaches; its <strong>anticodon loop</strong> (bottom) is what actually reads the mRNA codon. Two side arms — the D-arm and TψC-arm — fold it into its working shape.');
+  setHint('Free amino acid + uncharged tRNA drift toward the synthetase…');
+  renderChainPreview();
+}
+
+function updateCharging(){
+  if (charging.step === 'IDLE') return;
+  charging.stepT++;
+  const geo = synthetaseGeometry();
+
+  if (charging.step === 'DRIFT_IN'){
+    const t = Math.min(1, charging.stepT / CHARGE_DRIFT_FRAMES);
+    const ease = 1 - Math.pow(1-t, 3); // ease-out cubic
+    charging.aaX = aaStart.x + (geo.rightNotch.x - aaStart.x)*ease;
+    charging.aaY = aaStart.y + (geo.rightNotch.y - aaStart.y)*ease;
+    charging.trnaX = trnaStart.x + (geo.leftNotch.x - trnaStart.x)*ease;
+    charging.trnaY = trnaStart.y + (geo.leftNotch.y - trnaStart.y)*ease;
+    if (t>=1){ charging.step='DOCKED'; charging.stepT=0; setCard('Charging begins','The tRNA and its cognate amino acid enter the active site of the specific synthetase.'); }
+  }
+  else if (charging.step === 'DOCKED'){
+    charging.aaX = geo.rightNotch.x; charging.aaY = geo.rightNotch.y;
+    charging.trnaX = geo.leftNotch.x; charging.trnaY = geo.leftNotch.y;
+    if (charging.stepT===1) setHint('ATP is spent — the synthetase catalyzes the bond…');
+    if (charging.stepT>=CHARGE_ATP_HOLD){ charging.step='BONDING'; charging.stepT=0; charging.bondT=0;
+      setCard('Covalent bond formation','Using ATP, the synthetase catalyzes covalent bonding between the amino acid and the tRNA — releasing AMP + 2 P<sub>i</sub>.'); }
+  }
+  else if (charging.step === 'BONDING'){
+    charging.aaX = geo.rightNotch.x; charging.aaY = geo.rightNotch.y;
+    charging.trnaX = geo.leftNotch.x; charging.trnaY = geo.leftNotch.y;
+    charging.bondT = Math.min(1, charging.stepT/CHARGE_BOND_FRAMES);
+    if (charging.bondT>=1){ charging.step='RELEASING'; charging.stepT=0;
+      setCard('Charged tRNA released','The tRNA charged with the amino acid is released by the synthetase, free to travel to the ribosome.');
+      setHint('Charged tRNA released — <strong>Bind Codon</strong> comes next.'); }
+  }
+  else if (charging.step === 'RELEASING'){
+    const t = Math.min(1, charging.stepT/CHARGE_RELEASE_FRAMES);
+    const ease = 1 - Math.pow(1-t,3);
+    // Head toward the actual bound ribosome (wherever it landed) rather than
+    // a fixed dish spot — this also previews where Bind Codon picks up next.
+    let holdX = geo.cx, holdY = geo.cy - geo.R*2.6;
+    if (boundRibosome){
+      holdX = boundRibosome.x + boundRibosome.radius*2.0;
+      holdY = boundRibosome.y + boundRibosome.radius*2.0;
+    }
+    charging.trnaX = geo.leftNotch.x + (holdX-geo.leftNotch.x)*ease;
+    charging.trnaY = geo.leftNotch.y + (holdY-geo.leftNotch.y)*ease;
+    if (t>=1){ charging.step='DONE'; charging.stepT=0;
+      const bindBtn=document.getElementById('btnBind'); if(bindBtn) bindBtn.disabled=false; }
+  }
+}
+
+function drawAminoAcidSphere(x,y,r,rgb){
+  ctx.save();
+  const g = ctx.createRadialGradient(x-r*0.3,y-r*0.35,0,x,y,r*1.05);
+  g.addColorStop(0, `rgba(${Math.min(255,rgb[0]+45)},${Math.min(255,rgb[1]+45)},${Math.min(255,rgb[2]+45)},0.98)`);
+  g.addColorStop(0.6, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.95)`);
+  g.addColorStop(1, `rgba(${Math.max(0,rgb[0]-40)},${Math.max(0,rgb[1]-40)},${Math.max(0,rgb[2]-40)},0.9)`);
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fillStyle=g;
+  ctx.shadowColor='rgba(0,0,0,0.35)'; ctx.shadowBlur=r*0.3; ctx.fill(); ctx.shadowBlur=0;
+  ctx.restore();
+}
+
+// Three anticodon-letter tokens, sitting below the anticodon loop. They
+// stay blank (dark, unlabeled) while the tRNA is still traveling — the
+// sequence isn't "confirmed" yet — then all three flip (a horizontal
+// squash-and-recover, like a coin turning face-up) together the instant
+// it arrives at the codon, revealing the actual letters at once.
+function drawAnticodonBalls(x, y, R, anticodon, reveal){
+  ctx.save(); ctx.translate(x,y);
+  const letters = (anticodon||'').split('');
+  const spacing = R*0.62, ballR = R*0.26;
+  const flipT = Math.min(1, Math.max(0, reveal||0));
+  const scaleX = Math.max(0.06, Math.abs(Math.cos(flipT*Math.PI)));
+  const showLetter = flipT > 0.5;
+  for(let i=0;i<3;i++){
+    const bx = (i-1)*spacing;
+    ctx.save();
+    ctx.translate(bx,0); ctx.scale(scaleX,1);
+    ctx.beginPath(); ctx.arc(0,0,ballR,0,Math.PI*2);
+    const g = ctx.createRadialGradient(-ballR*0.3,-ballR*0.3,0,0,0,ballR*1.1);
+    if (showLetter){ g.addColorStop(0,'rgba(190,240,255,0.98)'); g.addColorStop(1,'rgba(130,205,240,0.92)'); }
+    else { g.addColorStop(0,'rgba(55,85,115,0.92)'); g.addColorStop(1,'rgba(28,50,75,0.88)'); }
+    ctx.fillStyle=g; ctx.fill();
+    ctx.strokeStyle='rgba(150,215,255,0.7)'; ctx.lineWidth=(R*0.03)/scaleX; ctx.stroke();
+    if (showLetter && letters[i]){
+      ctx.font = `700 ${(R*0.30/scaleX).toFixed(1)}px 'Space Mono','Roboto Mono',monospace`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle='#04121e';
+      ctx.fillText(letters[i], 0, R*0.01);
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// The actual mRNA codon meeting the anticodon — anchored back to the real
+// strand via a short stub (never a free-floating token), with EXPLICIT
+// crossing pairing lines. Codon and anticodon run antiparallel, so the
+// codon's first base pairs with the anticodon's LAST displayed base, not
+// its first — a straight side-by-side line-up would misrepresent this.
+function drawCodonAnticodonMatch(anticodonBallX, anticodonBallY, ballR, codon, alpha){
+  if (!exportChain || !codon || alpha<=0.01) return;
+  const cap = currentMrnaAnchorNode();
+  const spacing = ballR*2.4;
+  const rowY = anticodonBallY + ballR*2.7; // codon row sits just below the anticodon row (which is already at the tRNA's bottom)
+  const rowX0 = anticodonBallX;
+
+  ctx.save(); ctx.globalAlpha = alpha;
+
+  // Stub: this token row is the real mRNA strand, drawn zoomed in for
+  // clarity — not a separate object appearing out of nowhere.
+  ctx.beginPath(); ctx.moveTo(cap.x,cap.y); ctx.lineTo(rowX0,rowY);
+  ctx.strokeStyle='rgba(120,230,180,0.55)'; ctx.lineWidth=ballR*0.14;
+  ctx.setLineDash([ballR*0.3, ballR*0.22]); ctx.stroke(); ctx.setLineDash([]);
+
+  const codonPos=(i)=>({x:rowX0+(i-1)*spacing, y:rowY});
+  const anticodonPos=(i)=>({x:anticodonBallX+(i-1)*spacing, y:anticodonBallY});
+
+  // Antiparallel pairing: codon[i] ↔ anticodon[2-i] (crosses at the ends,
+  // straight in the middle) — matches how the two strands actually run.
+  for(let i=0;i<3;i++){
+    const c=codonPos(i), a=anticodonPos(2-i);
+    ctx.beginPath(); ctx.moveTo(c.x,c.y-ballR*0.95); ctx.lineTo(a.x,a.y+ballR*0.95);
+    ctx.strokeStyle='rgba(220,235,255,0.5)'; ctx.lineWidth=ballR*0.09; ctx.stroke();
+  }
+
+  // Codon tokens — teal, the same colour family as the mRNA backbone.
+  for(let i=0;i<3;i++){
+    const p = codonPos(i);
+    ctx.beginPath(); ctx.arc(p.x,p.y,ballR,0,Math.PI*2);
+    const g = ctx.createRadialGradient(p.x-ballR*0.3,p.y-ballR*0.3,0,p.x,p.y,ballR*1.1);
+    g.addColorStop(0,'rgba(190,250,225,0.96)'); g.addColorStop(1,'rgba(105,210,160,0.92)');
+    ctx.fillStyle=g; ctx.fill();
+    ctx.strokeStyle='rgba(150,235,255,0.6)'; ctx.lineWidth=ballR*0.1; ctx.stroke();
+    ctx.font=`700 ${(ballR*1.05).toFixed(1)}px 'Space Mono','Roboto Mono',monospace`;
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#04241a';
+    ctx.fillText(codon[i]||'', p.x, p.y+ballR*0.02);
+  }
+  ctx.restore();
+}
+
+
+// Reverse-complement of a codon — the anticodon a tRNA actually carries,
+// read antiparallel against the mRNA codon it recognizes.
+function codonToAnticodon(codon){
+  const comp = { A:'U', U:'A', G:'C', C:'G' };
+  return codon.split('').reverse().map(b=>comp[b]||b).join('');
+}
+
+// Local-space landmarks for the cloverleaf tRNA icon, shared with the
+// charging-scene bond-line code so the two never drift out of sync.
+function trnaLandmarks(R){
+  const jy = -R*0.10;           // central junction, just above the icon's origin
+  const accStemLen = R*0.62;    // acceptor stem: junction → open 3' end
+  const acStemLen  = R*0.42;    // anticodon-arm stem: junction → loop
+  const acLoopR    = R*0.24;
+  const acLoopCy   = jy + acStemLen + acLoopR;
+  return {
+    jx:0, jy, accStemLen, acStemLen, acLoopR,
+    acceptorTipY: jy - accStemLen - R*0.16,      // where the amino acid actually attaches
+    anticodonBallY: acLoopCy + acLoopR + R*0.36, // where the 3 anticodon-letter balls sit, below the loop
+  };
+}
+
+function drawTRNAIcon(x, y, R, opts){
+  const { charged=false, rgb=null, anticodon=null, rotation=0 } = opts||{};
+  ctx.save(); ctx.translate(x,y); if (rotation) ctx.rotate(rotation);
+  const stroke='rgba(150,215,255,0.9)', strokeSoft='rgba(150,215,255,0.82)';
+  const lw=R*0.085, rungLw=R*0.05;
+  ctx.lineCap='round';
+  const lm = trnaLandmarks(R);
+  const jx=lm.jx, jy=lm.jy;
+
+  // A base-paired stem: two rails with rungs between them, like a tiny
+  // ladder, oriented along (x0,y0)→(x1,y1).
+  function stem(x0,y0,x1,y1,rungs){
+    const dx=x1-x0, dy=y1-y0, len=Math.hypot(dx,dy)||1;
+    const px=-dy/len, py=dx/len, half=R*0.13;
+    ctx.strokeStyle=stroke; ctx.lineWidth=lw;
+    ctx.beginPath(); ctx.moveTo(x0+px*half,y0+py*half); ctx.lineTo(x1+px*half,y1+py*half); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0-px*half,y0-py*half); ctx.lineTo(x1-px*half,y1-py*half); ctx.stroke();
+    ctx.lineWidth=rungLw;
+    for(let i=0;i<rungs;i++){ const t=(i+0.5)/rungs, rx=x0+dx*t, ry=y0+dy*t;
+      ctx.beginPath(); ctx.moveTo(rx+px*half,ry+py*half); ctx.lineTo(rx-px*half,ry-py*half); ctx.stroke(); }
+  }
+  // A stem ending in a hairpin loop (D-arm / TψC-arm), branching from the junction.
+  function armLoop(angle, armLen, loopR, rungs){
+    const x1=jx+Math.cos(angle)*armLen, y1=jy+Math.sin(angle)*armLen;
+    stem(jx,jy,x1,y1,rungs);
+    const lcx=x1+Math.cos(angle)*loopR, lcy=y1+Math.sin(angle)*loopR;
+    ctx.beginPath(); ctx.arc(lcx,lcy,loopR,0,Math.PI*2); ctx.strokeStyle=strokeSoft; ctx.lineWidth=lw*0.85; ctx.stroke();
+  }
+
+  // D-arm (upper-left) and TψC-arm (upper-right) — the two side loops that
+  // fold the cloverleaf into its actual L-shaped 3D structure.
+  armLoop(Math.PI*1.20, R*0.34, R*0.155, 2);
+  armLoop(-Math.PI*0.20, R*0.34, R*0.155, 2);
+
+  // Anticodon arm (straight down) — the end that actually faces the mRNA.
+  const acLoopCy = jy + lm.acStemLen + lm.acLoopR;
+  stem(jx,jy, jx,jy+lm.acStemLen, 3);
+  ctx.beginPath(); ctx.arc(jx, acLoopCy, lm.acLoopR, 0, Math.PI*2);
+  ctx.strokeStyle=stroke; ctx.lineWidth=lw; ctx.stroke();
+
+  // Acceptor stem (straight up) — ends OPEN, not a loop: the single-
+  // stranded 3′ CCA tail is where the amino acid actually attaches.
+  const accTopY = jy - lm.accStemLen;
+  stem(jx,jy, jx,accTopY, 3);
+  if (charged && rgb){
+    ctx.beginPath(); ctx.moveTo(jx, accTopY); ctx.lineTo(jx, lm.acceptorTipY - R*0.05);
+    ctx.strokeStyle='rgba(150,235,255,0.85)'; ctx.lineWidth=R*0.09; ctx.stroke();
+    drawAminoAcidSphere(jx, lm.acceptorTipY-R*0.30, R*0.38, rgb);
+  } else {
+    ctx.beginPath(); ctx.arc(jx, lm.acceptorTipY+R*0.16, R*0.16, 0, Math.PI*2);
+    ctx.strokeStyle=stroke; ctx.lineWidth=R*0.075; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Wide, squashed, lumpy-textured blob with two docking dimples on its top
+// edge — visually distinct (purple) from the ribosome (tan). Kept as its
+// own function rather than reusing drawRibosomeSubunit, so the stable
+// ribosome renderer is never touched.
+function drawSynthetase(cx, cy, R, notchGlow){
+  let s=7331; const rnd=()=>{ s=(s*1103515245+12345)&0x7fffffff; return (s>>8)/0x7fffff; };
+  const lumps=9, bumps=[];
+  for(let i=0;i<lumps;i++) bumps.push({ang:rnd()*Math.PI*2, w:0.5+rnd()*0.8, amp:0.09+rnd()*0.05});
+  const notchAngles=[ -Math.PI*0.72, -Math.PI*0.28 ]; // left / right dimples, upper half
+  const radiusAt=(th)=>{ let rr=1;
+    for(const b of bumps){ let d=Math.abs(((th-b.ang+Math.PI*3)%(Math.PI*2))-Math.PI); rr += Math.cos(Math.min(Math.PI,d/b.w))*b.amp*0.5; }
+    for(const na of notchAngles){ let d=Math.abs(((th-na+Math.PI*3)%(Math.PI*2))-Math.PI); rr -= 0.30*Math.exp(-(d*d)/0.05); }
+    return rr;
+  };
+  ctx.save(); ctx.translate(cx,cy);
+  const N=56;
+  const buildPath=()=>{
+    ctx.beginPath();
+    for(let i=0;i<=N;i++){ const th=(i/N)*Math.PI*2; const rr=R*radiusAt(th);
+      const px=Math.cos(th)*rr, py=Math.sin(th)*rr*0.6;
+      if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); }
+    ctx.closePath();
+  };
+  buildPath();
+  const bg = ctx.createRadialGradient(-R*0.2,-R*0.2,0,0,0,R*1.1);
+  bg.addColorStop(0,'rgba(210,190,235,0.92)'); bg.addColorStop(0.6,'rgba(160,125,205,0.9)'); bg.addColorStop(1,'rgba(120,90,165,0.88)');
+  ctx.fillStyle=bg; ctx.shadowColor='rgba(0,0,0,0.3)'; ctx.shadowBlur=R*0.14; ctx.fill(); ctx.shadowBlur=0;
+
+  // granular protein texture, stippled inside the body — same technique
+  // used for the ribosome subunits, so the enzyme doesn't read as flat.
+  ctx.save(); buildPath(); ctx.clip();
+  const grains = Math.round(R*1.4);
+  for(let i=0;i<grains;i++){
+    const a=rnd()*Math.PI*2, rr=Math.sqrt(rnd())*R*0.95;
+    const gx=Math.cos(a)*rr, gy=Math.sin(a)*rr*0.6;
+    const gsz=R*(0.05+rnd()*0.08);
+    const dark=rnd()>0.5;
+    ctx.beginPath(); ctx.arc(gx,gy,gsz,0,Math.PI*2);
+    ctx.fillStyle = dark ? 'rgba(110,80,155,0.30)' : 'rgba(230,215,245,0.28)';
+    ctx.fill();
+  }
+  ctx.restore();
+
+  buildPath();
+  ctx.strokeStyle='rgba(225,205,245,0.85)'; ctx.lineWidth=R*0.045; ctx.stroke();
+  if (notchGlow>0.01){
+    ctx.save(); ctx.globalAlpha=notchGlow;
+    const g = ctx.createRadialGradient(0,-R*0.4,0,0,-R*0.4,R*0.9);
+    g.addColorStop(0,'rgba(150,235,255,0.35)'); g.addColorStop(1,'rgba(150,235,255,0)');
+    ctx.beginPath(); ctx.arc(0,-R*0.4,R*0.9,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// Small rounded pill badge — used for the ATP / AMP + 2 Pi labels so they
+// read as distinct molecule tokens rather than plain floating text.
+function drawPillBadge(cx, cy, text, topRgb, botRgb, textColor, fontPx){
+  ctx.save();
+  ctx.font = `700 ${fontPx.toFixed(1)}px 'Space Mono','Roboto Mono',monospace`;
+  const padX = fontPx*0.55, h = fontPx*1.7;
+  const w = ctx.measureText(text).width + padX*2;
+  const x = cx - w/2, y = cy - h/2, r = h/2;
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+  const g = ctx.createLinearGradient(x,y,x,y+h);
+  g.addColorStop(0,`rgba(${topRgb[0]},${topRgb[1]},${topRgb[2]},0.95)`);
+  g.addColorStop(1,`rgba(${botRgb[0]},${botRgb[1]},${botRgb[2]},0.92)`);
+  ctx.fillStyle=g; ctx.shadowColor='rgba(0,0,0,0.3)'; ctx.shadowBlur=fontPx*0.2; ctx.fill(); ctx.shadowBlur=0;
+  ctx.fillStyle = textColor; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(text, cx, cy+fontPx*0.02);
+  ctx.restore();
+}
+
+// Zoomed-in inset showing the covalent bond actually forming — mirrors the
+// reference diagram's magnified "Covalent bond formation" callout, linked
+// back to the real (tiny, at this scale) bond site with a leader line.
+function drawCovalentBondCallout(geo, bondT, rgb){
+  const alpha = bondT<0.12 ? bondT/0.12 : (bondT>0.88 ? (1-bondT)/0.12 : 1);
+  if (alpha<=0.01) return;
+  const calloutR = geo.R*1.15;
+  const calloutX = geo.cx + geo.R*2.35, calloutY = geo.cy - geo.R*1.65;
+  const anchorX = geo.rightNotch.x, anchorY = geo.rightNotch.y - geo.R*0.9;
+
+  ctx.save(); ctx.globalAlpha = alpha;
+  ctx.beginPath(); ctx.setLineDash([geo.R*0.06, geo.R*0.05]);
+  ctx.moveTo(anchorX, anchorY); ctx.lineTo(calloutX-calloutR*0.65, calloutY+calloutR*0.55);
+  ctx.strokeStyle='rgba(150,215,255,0.45)'; ctx.lineWidth=geo.R*0.02; ctx.stroke(); ctx.setLineDash([]);
+
+  ctx.beginPath(); ctx.arc(calloutX,calloutY,calloutR,0,Math.PI*2);
+  ctx.fillStyle='rgba(6,14,32,0.94)'; ctx.fill();
+  ctx.strokeStyle='rgba(150,215,255,0.6)'; ctx.lineWidth=geo.R*0.035; ctx.stroke();
+
+  ctx.save();
+  ctx.beginPath(); ctx.arc(calloutX,calloutY,calloutR*0.9,0,Math.PI*2); ctx.clip();
+  ctx.translate(calloutX, calloutY+calloutR*0.32);
+  const z = geo.R*0.9;
+  ctx.strokeStyle='rgba(150,215,255,0.95)'; ctx.lineWidth=z*0.14; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-z*0.24, z*0.55); ctx.lineTo(-z*0.24, -z*0.1); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo( z*0.24, z*0.55); ctx.lineTo( z*0.24, -z*0.1); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-z*0.24, z*0.22); ctx.lineTo(z*0.24, z*0.22); ctx.lineWidth=z*0.08; ctx.stroke();
+  const by = -z*0.1 - z*0.85*bondT;
+  ctx.beginPath(); ctx.moveTo(0,-z*0.1); ctx.lineTo(0,by);
+  ctx.strokeStyle='rgba(150,235,255,0.95)'; ctx.lineWidth=z*0.16; ctx.stroke();
+  drawAminoAcidSphere(0, by, z*0.32, rgb);
+  ctx.restore();
+
+  ctx.font = `600 ${(geo.R*0.155).toFixed(1)}px 'Inter','Roboto',system-ui,sans-serif`;
+  ctx.textAlign='center'; ctx.fillStyle='rgba(210,232,255,0.92)';
+  ctx.fillText('Covalent bond', calloutX, calloutY+calloutR+geo.R*0.30);
+  ctx.fillText('formation', calloutX, calloutY+calloutR+geo.R*0.52);
+  ctx.restore();
+}
+
+function drawChargingScene(){
+  if (charging.step === 'IDLE') return;
+  if (typeof bonding!=='undefined' && bonding.step==='TRANSLOCATE') return;
+  const geo = synthetaseGeometry();
+  const residue = charging.residue;
+  const rgb = (residue && residue.cls) ? AA_CLASS_RGB[residue.cls] : [200,200,200];
+  const anticodon = residue ? codonToAnticodon(residue.codon) : null;
+  const anticodonReveal = (typeof binding!=='undefined' && binding.step==='DOCKED')
+    ? Math.min(1,(binding.revealT||0)/ANTICODON_FLIP_FRAMES) : 0;
+
+  const showSynthetase = charging.step !== 'RELEASING' || charging.stepT < CHARGE_RELEASE_FRAMES*0.4;
+  if (showSynthetase){
+    const glow = (charging.step==='BONDING') ? charging.bondT : (charging.step==='DOCKED'?0.5:0);
+    drawSynthetase(geo.cx, geo.cy, geo.R, glow);
+  }
+
+  // Before binding starts, the tRNA is sized relative to the synthetase
+  // (appropriate right next to it). Once it travels toward a ribosome,
+  // ease its size down to ribosome-scale so it sits beside it rather than
+  // engulfing it. Kept upright throughout — that reads as roughly
+  // perpendicular to the mRNA (how tRNA–codon pairing is normally drawn),
+  // whereas rotating to match the travel direction made it look parallel
+  // to the strand instead, which is the wrong picture.
+  let trnaR = geo.R*0.85, trnaRotation = 0;
+  if (typeof binding !== 'undefined' && binding.step !== 'IDLE' && boundRibosome){
+    const chargeR = geo.R*0.85, dockedR = boundRibosome.radius*0.8;
+    const travelT = binding.step==='TRAVEL' ? (binding.travelT||0) : 1;
+    trnaR = chargeR + (dockedR-chargeR)*travelT;
+  }
+  const lm = trnaLandmarks(trnaR);
+  const rotVec = (x,y,ang)=>{ if(!ang) return {x,y}; const c=Math.cos(ang), s=Math.sin(ang); return { x:x*c-y*s, y:x*s+y*c }; };
+  const ballPos = ()=>{ const v = rotVec(lm.jx, lm.anticodonBallY, trnaRotation); return { x: charging.trnaX+v.x, y: charging.trnaY+v.y }; };
+
+  if (charging.step==='DRIFT_IN' || charging.step==='DOCKED'){
+    drawTRNAIcon(charging.trnaX, charging.trnaY, trnaR, {charged:false});
+    const bp=ballPos(); drawAnticodonBalls(bp.x, bp.y, trnaR, anticodon, anticodonReveal);
+    drawAminoAcidSphere(charging.aaX, charging.aaY, geo.R*0.34, rgb);
+  } else if (charging.step==='BONDING'){
+    // covalent bond growing between the amino acid and the tRNA's 3' end
+    const trnaTopX = charging.trnaX + lm.jx, trnaTopY = charging.trnaY + lm.acceptorTipY;
+    drawTRNAIcon(charging.trnaX, charging.trnaY, trnaR, {charged:false});
+    const bp=ballPos(); drawAnticodonBalls(bp.x, bp.y, trnaR, anticodon, anticodonReveal);
+    const bx = trnaTopX + (charging.aaX-trnaTopX)*charging.bondT;
+    const by = trnaTopY + (charging.aaY-trnaTopY)*charging.bondT;
+    ctx.save(); ctx.strokeStyle='rgba(150,235,255,0.9)'; ctx.lineWidth=geo.R*0.07; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(trnaTopX,trnaTopY); ctx.lineTo(bx,by); ctx.stroke(); ctx.restore();
+    drawAminoAcidSphere(charging.aaX, charging.aaY, geo.R*0.34, rgb);
+    drawCovalentBondCallout(geo, charging.bondT, rgb);
+  } else if (charging.step==='RELEASING' || charging.step==='DONE'){
+    drawTRNAIcon(charging.trnaX, charging.trnaY, trnaR, {charged:true, rgb, rotation:trnaRotation});
+    const bp=ballPos(); drawAnticodonBalls(bp.x, bp.y, trnaR, anticodon, anticodonReveal);
+    const matchAlpha = Math.max(0, (anticodonReveal-0.3)/0.7);
+    if (residue) drawCodonAnticodonMatch(bp.x, bp.y, trnaR*0.26, residue.codon, matchAlpha);
+  }
+
+  // ATP → AMP + 2Pi pill badges during the docked/bonding stages
+  if (charging.step==='DOCKED' || charging.step==='BONDING'){
+    drawPillBadge(geo.cx+geo.R*0.95, geo.cy+geo.R*0.55, 'ATP', [255,205,90],[225,165,40], '#3a2606', geo.R*0.20);
+    drawPillBadge(geo.cx+geo.R*1.05, geo.cy+geo.R*1.05, 'AMP + 2 Pi', [225,235,250],[190,205,225], '#0c2035', geo.R*0.17);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  ELONGATION — Phase 3: Bind Codon.
+//  The charged tRNA automatically travels from where charging left it to
+//  the ribosome's mRNA-facing side (reusing the same "steer toward a
+//  target" idea used for the mRNA's own docking), arriving anticodon-
+//  first, as if meeting the codon it's about to read.
+// ═══════════════════════════════════════════════════════════════════════
+
+const BIND_TRAVEL_FRAMES = 130, ANTICODON_FLIP_FRAMES = 36;
+let binding = { step:'IDLE', stepT:0 };
+
+function startBinding(){
+  if (charging.step !== 'DONE') return;
+  if (binding.step !== 'IDLE') return;
+  if (!boundRibosome || !exportChain) return;
+  binding = { step:'TRAVEL', stepT:0 };
+  binding.startX = charging.trnaX; binding.startY = charging.trnaY;
+  const s40 = translation.small40S;
+  const smallX = boundRibosome.x + s40.x*boundRibosome.radius, smallY = boundRibosome.y + s40.y*boundRibosome.radius;
+  const cap = currentMrnaAnchorNode();
+  const cleftAngle = Math.atan2(cap.y-smallY, cap.x-smallX); // toward the mRNA-facing side of the small subunit
+  binding.targetX = smallX + Math.cos(cleftAngle)*boundRibosome.radius*0.55;
+  binding.targetY = smallY + Math.sin(cleftAngle)*boundRibosome.radius*0.55;
+  const btn = document.getElementById('btnBind'); if (btn) btn.disabled = true;
+  const residue = charging.residue;
+  const anticodon = residue ? codonToAnticodon(residue.codon) : '';
+  const codon = residue ? residue.codon : '';
+  setCard('Anticodon meets codon', 'The charged tRNA travels to the ribosome\u2019s A site. Its anticodon (<strong>'+anticodon+'</strong>) pairs base-by-base, antiparallel, with the mRNA codon (<strong>'+codon+'</strong>) — A with U, G with C.');
+  setHint('Charged tRNA travels to the A site\u2026');
+}
+
+function updateBinding(){
+  if (binding.step === 'IDLE') return;
+  binding.stepT++;
+  if (binding.step === 'TRAVEL'){
+    const t = Math.min(1, binding.stepT/BIND_TRAVEL_FRAMES);
+    binding.travelT = t;
+    const ease = 1 - Math.pow(1-t,3);
+    charging.trnaX = binding.startX + (binding.targetX-binding.startX)*ease;
+    charging.trnaY = binding.startY + (binding.targetY-binding.startY)*ease;
+    if (t>=1){
+      binding.step='DOCKED'; binding.stepT=0; binding.revealT=0;
+      setHint('Anticodon paired \u2014 <strong>Form Bond</strong> comes next.');
+      const bondBtn=document.getElementById('btnBond'); if(bondBtn) bondBtn.disabled=false;
+    }
+  } else if (binding.step === 'DOCKED'){
+    binding.revealT = Math.min(ANTICODON_FLIP_FRAMES, (binding.revealT||0)+1);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  ELONGATION — Phase 4: Form Bond (transpeptidation + translocation).
+//  The peptide bond forms, then the RIBOSOME itself moves one codon along
+//  the FIXED mRNA — the biologically correct picture (mRNA stays put,
+//  ribosomes translocate along it; it's also why several ribosomes can sit
+//  on one mRNA at once as polysomes, which only makes sense this way).
+//  The strand's length is rebuilt to actually reflect how many residues
+//  were chosen, rather than always being the fixed initiation-scan length.
+// ═══════════════════════════════════════════════════════════════════════
+
+const BOND_PULSE_FRAMES = 50, TRANSLOCATE_FRAMES = 130;
+let bonding = { step:'IDLE', stepT:0 };
+let translocation = { codonIndex:0 }; // 0 = ribosome sitting at AUG/Met
+
+// Wherever code needs "the mRNA point the ribosome is currently reading,"
+// it should call this — not exportChain.nodes[0] directly — since after
+// translocation begins, the relevant point is no longer the cap.
+function currentMrnaAnchorNode(){
+  if (!exportChain) return {x:0,y:0};
+  if (exportChain.codonAnchorIndex){
+    const idx = exportChain.codonAnchorIndex(translocation.codonIndex);
+    return exportChain.nodes[idx] || exportChain.nodes[0];
+  }
+  return exportChain.nodes[0];
+}
+
+// Rebuilds everything after the cap so the strand's total length actually
+// reflects the chosen chain (a 2-residue chain gets a short tail, a
+// 10-residue chain a long one). The cap itself is left exactly where it
+// already docked.
+function extendMrnaForChain(){
+  if (!exportChain || !boundRibosome) return;
+  const cap = exportChain.nodes[0];
+  let dirX=1, dirY=0.3;
+  if (exportChain.nodes.length>1){
+    const n1 = exportChain.nodes[1];
+    const dx=n1.x-cap.x, dy=n1.y-cap.y, len=Math.hypot(dx,dy)||1;
+    dirX=dx/len; dirY=dy/len;
+  }
+  const nodesPerCodon = 3;
+  const numCodons = Math.max(1, elongChain.length);
+  const totalNewNodes = numCodons*nodesPerCodon;
+  const segLen = exportChain.restLen*0.62; // shorter spacing so even long chains stay on-dish
+  const newNodes = [];
+  let px=cap.x, py=cap.y, angle=Math.atan2(dirY,dirX);
+  for(let i=1;i<=totalNewNodes;i++){
+    // gentle wander, softly biased back toward the dish centre
+    const toCenter = Math.atan2(CY-py, CX-px);
+    let diff = toCenter-angle; while(diff>Math.PI) diff-=Math.PI*2; while(diff<-Math.PI) diff+=Math.PI*2;
+    angle += diff*0.04 + Math.sin(i*0.9)*0.10;
+    const nx = px+Math.cos(angle)*segLen, ny = py+Math.sin(angle)*segLen;
+    newNodes.push({x:nx,y:ny, px:nx,py:ny, rax:nx,ray:ny, kind: i>totalNewNodes-4?'tail':'body'});
+    px=nx; py=ny;
+  }
+  exportChain.nodes = [
+    {x:cap.x,y:cap.y,px:cap.px,py:cap.py,rax:cap.rax,ray:cap.ray,kind:cap.kind},
+    ...newNodes
+  ];
+  exportChain.restLen = segLen;
+  exportChain.codonAnchorIndex = (k)=> Math.min(exportChain.nodes.length-1, Math.round(k*nodesPerCodon));
+  translocation = { codonIndex: 0 };
+}
+
+function startBonding(){
+  if (binding.step !== 'DOCKED') return;
+  if (bonding.step !== 'IDLE') return;
+  bonding = { step:'PULSE', stepT:0 };
+  const btn=document.getElementById('btnBond'); if (btn) btn.disabled=true;
+  setCard('Peptide bond forms', 'The ribosome catalyzes a peptide bond between the new amino acid and the growing chain. The now-empty tRNA leaves, and the ribosome moves one codon further along the fixed mRNA.');
+  setHint('Peptide bond forming\u2026');
+}
+
+function updateBonding(){
+  if (bonding.step === 'IDLE') return;
+  bonding.stepT++;
+  if (bonding.step === 'PULSE'){
+    if (bonding.stepT >= BOND_PULSE_FRAMES){
+      bonding.step='TRANSLOCATE'; bonding.stepT=0;
+      bonding.startX=boundRibosome.x; bonding.startY=boundRibosome.y;
+      const nextAnchor = exportChain.nodes[exportChain.codonAnchorIndex(translocation.codonIndex+1)];
+      bonding.targetX=nextAnchor.x; bonding.targetY=nextAnchor.y;
+      setHint('Ribosome translocates one codon along the mRNA\u2026');
+    }
+  } else if (bonding.step === 'TRANSLOCATE'){
+    const t = Math.min(1, bonding.stepT/TRANSLOCATE_FRAMES);
+    const ease = 1 - Math.pow(1-t,3);
+    boundRibosome.x = bonding.startX + (bonding.targetX-bonding.startX)*ease;
+    boundRibosome.y = bonding.startY + (bonding.targetY-bonding.startY)*ease;
+    if (t>=1){
+      const justBonded = charging.residue;
+      if (justBonded) polypeptide.push({ code:justBonded.code, name:justBonded.name, cls:justBonded.cls, codon:justBonded.codon });
+      translocation.codonIndex++;
+      elongIndex++;
+      bonding = { step:'IDLE', stepT:0 };
+      charging = { step:'IDLE', stepT:0 };
+      binding = { step:'IDLE', stepT:0 };
+      const nextIsStop = updateChargeButtonForCurrentResidue();
+      if (elongIndex < elongChain.length){
+        if (nextIsStop){
+          setCard('Stop codon reached', 'A stop codon carries no amino acid \u2014 no tRNA has a matching anticodon for it. Instead it signals the end of the message. Tap Release to terminate translation.');
+          setHint('Stop codon reached \u2014 tap <strong>Release</strong> to terminate translation.');
+        } else {
+          setCard('Next residue', 'The ribosome has moved to the next codon. Tap Charge tRNA to bring in the next amino acid.');
+          setHint('Ready for the next residue \u2014 tap <strong>Charge tRNA</strong>.');
+        }
+      } else {
+        setCard('Chain complete', 'Every residue in this chain has been added to the polypeptide. In life, a stop codon would trigger release from the ribosome.');
+        setHint('Elongation complete for this chain.');
+      }
+      renderChainPreview();
+    }
+  }
+}
+
+// Brief expanding-ring flash marking the instant the peptide bond forms.
+function drawBondingPulse(){
+  if (bonding.step !== 'PULSE') return;
+  const t = bonding.stepT/BOND_PULSE_FRAMES;
+  const geo = synthetaseGeometry();
+  const trnaR = geo.R*0.85;
+  const ringR = trnaR*(0.6+t*1.4);
+  ctx.save(); ctx.globalAlpha=(1-t)*0.75;
+  ctx.beginPath(); ctx.arc(charging.trnaX, charging.trnaY, ringR, 0, Math.PI*2);
+  ctx.strokeStyle='rgba(150,235,255,0.9)'; ctx.lineWidth=trnaR*0.09; ctx.stroke();
+  ctx.restore();
+}
+
+// ── Growing polypeptide chain: visible near the ribosome, tappable ─────
+let polypeptide = [];
+let peptideDir = { x:0, y:1 }; // direction the chain trails away from the ribosome, fixed once elongation begins
+
+function initPolypeptide(){
+  polypeptide = [{ code:'Met', name:'Methionine', cls:'nonpolar', codon:'AUG' }];
+  if (boundRibosome && exportChain){
+    const anchor = currentMrnaAnchorNode();
+    const dx = boundRibosome.x-anchor.x, dy = boundRibosome.y-anchor.y;
+    const len = Math.hypot(dx,dy)||1;
+    peptideDir = { x: dx/len, y: dy/len };
+  }
+}
+
+function peptideBeadPos(i){
+  if (!boundRibosome) return {x:0,y:0};
+  const spacing = boundRibosome.radius*0.62, base = boundRibosome.radius*1.35;
+  let d = base + i*spacing;
+  if (typeof termination !== 'undefined' && termination.step !== 'IDLE' && termination.step !== 'RF_ARRIVE'){
+    const t = termination.step==='HYDROLYSIS' ? Math.min(1, termination.stepT/HYDROLYSIS_FRAMES) : 1;
+    d += t * boundRibosome.radius*3.5; // detaches and drifts away once hydrolysis begins
+  }
+  return { x: boundRibosome.x + peptideDir.x*d, y: boundRibosome.y + peptideDir.y*d };
+}
+
+function drawPolypeptideChain(){
+  if (!polypeptide.length || !boundRibosome) return;
+  for (let i=1;i<polypeptide.length;i++){
+    const a=peptideBeadPos(i-1), b=peptideBeadPos(i);
+    ctx.save(); ctx.strokeStyle='rgba(220,235,255,0.55)'; ctx.lineWidth=boundRibosome.radius*0.09;
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); ctx.restore();
+  }
+  for (let i=0;i<polypeptide.length;i++){
+    const p = peptideBeadPos(i);
+    const rgb = AA_CLASS_RGB[polypeptide[i].cls] || [200,200,200];
+    drawAminoAcidSphere(p.x, p.y, boundRibosome.radius*0.34, rgb);
+  }
+}
+
+// Tap-to-inspect: returns true if a bead was hit (so canvas tap handling
+// can skip the usual ribosome-tap logic for this touch).
+function tryTapPolypeptideBead(px,py){
+  if (!polypeptide.length || !boundRibosome) return false;
+  const hitR = boundRibosome.radius*0.5;
+  for (let i=polypeptide.length-1;i>=0;i--){
+    const p = peptideBeadPos(i);
+    if (Math.hypot(px-p.x, py-p.y) <= hitR){
+      const res = polypeptide[i];
+      setCard(res.name + ' (' + res.code + ')',
+        'Residue ' + (i+1) + ' of ' + polypeptide.length + ' \u2014 encoded by codon <strong>' + res.codon + '</strong>, ' + (res.cls||'') + ' side chain.');
+      return true;
+    }
+  }
+  return false;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  TERMINATION — the ending event. No tRNA recognizes a stop codon (there's
+//  no matching anticodon for it); instead a release factor binds the A
+//  site, triggers hydrolysis of the bond holding the finished polypeptide,
+//  and the ribosome splits back into its two subunits, recycled and ready
+//  to translate again.
+// ═══════════════════════════════════════════════════════════════════════
+
+const RF_ARRIVE_FRAMES=110, HYDROLYSIS_FRAMES=90, DISASSEMBLE_FRAMES=140;
+let termination = { step:'IDLE', stepT:0 };
+let rfPos = {x:0,y:0}, rfStart = {x:0,y:0};
+
+function handleChargeButtonTap(){
+  if (elongIndex < elongChain.length && elongChain[elongIndex] && elongChain[elongIndex].stop){
+    startTermination();
+  } else {
+    startCharging();
+  }
+}
+
+// Sets Charge/Bind/Bond button states + the Charge label ("Charge" vs
+// "Release") for whichever residue is currently up next. Called right
+// after Export and again after each Form Bond completes, so the two
+// can never drift out of sync with each other.
+function updateChargeButtonForCurrentResidue(){
+  const chargeBtn=document.getElementById('btnCharge');
+  const bindBtn=document.getElementById('btnBind');
+  const bondBtn=document.getElementById('btnBond');
+  if (elongIndex < elongChain.length){
+    const nextIsStop = elongChain[elongIndex] && elongChain[elongIndex].stop;
+    if (chargeBtn){ chargeBtn.disabled=false; chargeBtn.textContent = nextIsStop ? 'Release' : 'Charge'; }
+    if (bindBtn) bindBtn.disabled=true;
+    if (bondBtn) bondBtn.disabled=true;
+    return nextIsStop;
+  } else {
+    if (chargeBtn){ chargeBtn.disabled=true; chargeBtn.textContent='Charge'; }
+    if (bindBtn) bindBtn.disabled=true;
+    if (bondBtn) bondBtn.disabled=true;
+    return false;
+  }
+}
+
+function terminationTargetPos(){
+  const s40=translation.small40S;
+  const smallX=boundRibosome.x+s40.x*boundRibosome.radius, smallY=boundRibosome.y+s40.y*boundRibosome.radius;
+  const anchor = currentMrnaAnchorNode();
+  const cleftAngle = Math.atan2(anchor.y-smallY, anchor.x-smallX);
+  return { x: smallX+Math.cos(cleftAngle)*boundRibosome.radius*0.55, y: smallY+Math.sin(cleftAngle)*boundRibosome.radius*0.55 };
+}
+
+function startTermination(){
+  if (termination.step !== 'IDLE') return;
+  if (!boundRibosome) return;
+  termination = { step:'RF_ARRIVE', stepT:0 };
+  const btn=document.getElementById('btnCharge'); if(btn) btn.disabled=true;
+  const t = terminationTargetPos();
+  // release factor drifts in from whichever side of the dish is emptiest — opposite the ribosome, relative to the dish centre
+  rfStart = { x: CX + (t.x>CX? -1:1)*nucR*0.85, y: CY + (t.y>CY? -1:1)*nucR*0.85 };
+  rfPos = { x: rfStart.x, y: rfStart.y };
+  setCard('Release factor arrives', 'No tRNA carries an anticodon matching a stop codon. Instead, a <strong>release factor</strong> — shaped to mimic a tRNA — binds the A site.');
+  setHint('Release factor binding the stop codon\u2026');
+}
+
+function updateTermination(){
+  if (termination.step === 'IDLE') return;
+  termination.stepT++;
+  const target = terminationTargetPos();
+
+  if (termination.step === 'RF_ARRIVE'){
+    const t = Math.min(1, termination.stepT/RF_ARRIVE_FRAMES);
+    const ease = 1 - Math.pow(1-t,3);
+    rfPos.x = rfStart.x + (target.x-rfStart.x)*ease;
+    rfPos.y = rfStart.y + (target.y-rfStart.y)*ease;
+    if (t>=1){
+      termination.step='HYDROLYSIS'; termination.stepT=0;
+      setCard('Hydrolysis', 'The release factor triggers hydrolysis of the bond holding the finished polypeptide to the last tRNA \u2014 the chain lets go.');
+      setHint('The finished polypeptide is released\u2026');
+    }
+  } else if (termination.step === 'HYDROLYSIS'){
+    rfPos.x = target.x; rfPos.y = target.y;
+    if (termination.stepT >= HYDROLYSIS_FRAMES){
+      termination.step='DISASSEMBLE'; termination.stepT=0;
+      setCard('Ribosome disassembles', 'With the polypeptide released, the ribosome splits back into its <strong>40S</strong> and <strong>60S</strong> subunits \u2014 recycled and ready to translate again.');
+      setHint('The ribosome splits apart\u2026');
+    }
+  } else if (termination.step === 'DISASSEMBLE'){
+    const t = Math.min(1, termination.stepT/DISASSEMBLE_FRAMES);
+    translation.small40S.x += (-1.7 - translation.small40S.x)*0.045;
+    translation.small40S.y += (-0.7 - translation.small40S.y)*0.045;
+    translation.large60S.x += (2.0 - translation.large60S.x)*0.045;
+    translation.large60S.y += (1.2 - translation.large60S.y)*0.045;
+    if (t>=1){
+      termination.step='DONE'; termination.stepT=0;
+      setCard('Translation complete', 'The polypeptide has been fully synthesized and released. The ribosome has recycled its subunits, ready to translate another mRNA.');
+      setHint('Translation complete.');
+    }
+  }
+}
+
+// Release factor — a distinct rounded shape (not the ribosome's tan, not
+// the synthetase's purple, not the tRNA's blue) so it clearly reads as its
+// own molecule.
+function drawReleaseFactor(){
+  if (termination.step!=='RF_ARRIVE' && termination.step!=='HYDROLYSIS') return;
+  const R = boundRibosome ? boundRibosome.radius*0.62 : nucR*0.08;
+  ctx.save(); ctx.translate(rfPos.x, rfPos.y);
+  const g = ctx.createRadialGradient(-R*0.25,-R*0.25,0,0,0,R*1.1);
+  g.addColorStop(0,'rgba(255,175,140,0.95)'); g.addColorStop(0.6,'rgba(235,130,95,0.92)'); g.addColorStop(1,'rgba(195,95,70,0.9)');
+  ctx.beginPath();
+  ctx.moveTo(0,-R); ctx.quadraticCurveTo(R*0.9,-R*0.5,R*0.75,R*0.3);
+  ctx.quadraticCurveTo(R*0.4,R,-R*0.4,R*0.9);
+  ctx.quadraticCurveTo(-R*0.95,R*0.4,-R*0.8,-R*0.4);
+  ctx.quadraticCurveTo(-R*0.5,-R*0.9,0,-R);
+  ctx.closePath();
+  ctx.fillStyle=g; ctx.shadowColor='rgba(0,0,0,0.3)'; ctx.shadowBlur=R*0.2; ctx.fill(); ctx.shadowBlur=0;
+  ctx.strokeStyle='rgba(255,205,180,0.85)'; ctx.lineWidth=R*0.06; ctx.stroke();
+  ctx.restore();
+}
+
+
+// ── Drawing: m⁷G cap, mRNA, ribosome subunits, complex ──────────────────
+function drawM7GCap(x, y, R){
+  ctx.save();
+  const halo=ctx.createRadialGradient(x,y,0,x,y,R*1.9);
+  halo.addColorStop(0,'rgba(160,235,255,0.45)'); halo.addColorStop(1,'rgba(140,220,255,0)');
+  ctx.beginPath(); ctx.arc(x,y,R*1.9,0,Math.PI*2); ctx.fillStyle=halo; ctx.fill();
+  const hex=(rr)=>{ ctx.beginPath(); for(let i=0;i<6;i++){ const a=Math.PI/6+i*Math.PI/3; const px=x+Math.cos(a)*rr, py=y+Math.sin(a)*rr; if(i===0)ctx.moveTo(px,py); else ctx.lineTo(px,py);} ctx.closePath(); };
+  hex(R);
+  const fill=ctx.createRadialGradient(x,y,0,x,y,R);
+  fill.addColorStop(0,'rgba(210,248,255,0.55)'); fill.addColorStop(1,'rgba(150,225,255,0.12)');
+  ctx.fillStyle=fill; ctx.shadowColor='rgba(130,225,255,0.9)'; ctx.shadowBlur=R*1.1; ctx.fill();
+  ctx.shadowBlur=0; hex(R);
+  ctx.strokeStyle='rgba(235,250,255,0.96)'; ctx.lineWidth=Math.max(1,R*0.16); ctx.lineJoin='round'; ctx.stroke();
+  hex(R*0.5); ctx.strokeStyle='rgba(190,240,255,0.7)'; ctx.lineWidth=Math.max(0.75,R*0.10); ctx.stroke();
+  ctx.restore();
+}
+
+function drawMrna(){
+  if (!exportChain) return;
+  const nodes = exportChain.nodes;
+  if (!nodes || nodes.length<2) return;
+  const buildPath=()=>{
+    ctx.beginPath(); ctx.moveTo(nodes[0].x,nodes[0].y);
+    for(let i=1;i<nodes.length-1;i++){ const mx=(nodes[i].x+nodes[i+1].x)/2, my=(nodes[i].y+nodes[i+1].y)/2; ctx.quadraticCurveTo(nodes[i].x,nodes[i].y,mx,my); }
+    const last=nodes[nodes.length-1]; ctx.quadraticCurveTo(last.x,last.y,last.x,last.y);
+  };
+  ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+  buildPath(); ctx.strokeStyle='rgba(110,225,175,0.18)'; ctx.lineWidth=nucR*0.045;
+  ctx.shadowColor='rgba(120,230,180,0.45)'; ctx.shadowBlur=nucR*0.05; ctx.stroke();
+  ctx.restore();
+
+  ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+  const c0=nodes[0], t0=nodes[nodes.length-1];
+  const grad=ctx.createLinearGradient(c0.x,c0.y,t0.x,t0.y);
+  grad.addColorStop(0,'rgba(150,240,225,0.95)'); grad.addColorStop(0.2,'rgba(120,228,185,0.95)'); grad.addColorStop(1,'rgba(96,210,150,0.92)');
+  buildPath(); ctx.strokeStyle=grad; ctx.lineWidth=nucR*0.019; ctx.stroke();
+  ctx.restore();
+
+  // poly-A tail beads
+  const tailNodes=nodes.filter(n=>n.kind==='tail');
+  tailNodes.forEach((n,k)=>{
+    const falloff=1-0.35*(k/Math.max(1,tailNodes.length-1)); const rr=nucR*0.019*falloff;
+    ctx.save(); const g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,rr);
+    g.addColorStop(0,'rgba(230,248,255,0.95)'); g.addColorStop(1,'rgba(120,200,255,0)');
+    ctx.beginPath(); ctx.arc(n.x,n.y,rr,0,Math.PI*2); ctx.fillStyle=g; ctx.fill(); ctx.restore();
+  });
+
+  // codon beads (once translation started)
+  if (translationInitiationStarted){
+    const beads=codonBeadPositions(); const CODON={0:'A',1:'U',2:'G'};
+    beads.forEach((b,i)=>{
+      const isCodon=(i>=0&&i<=2), isG=(i===2), codonPos=i;
+      const locked=translation.augFound&&isG;
+      const scanningHere=(translation.step==='SCANNING'&&translation.scanBead===codonPos&&isCodon);
+      const revealed=isCodon&&((translation.augLetters||0)>codonPos);
+      const br=nucR*(isG?0.030:0.024);
+      ctx.save(); const g=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,br);
+      if(locked){ g.addColorStop(0,'rgba(255,240,80,1)'); g.addColorStop(1,'rgba(255,205,40,0.95)'); ctx.shadowColor='rgba(255,225,60,0.95)'; ctx.shadowBlur=nucR*0.09; }
+      else if(revealed){ g.addColorStop(0,'rgba(240,215,130,0.95)'); g.addColorStop(1,'rgba(215,175,80,0.85)'); ctx.shadowColor='rgba(230,190,90,0.5)'; ctx.shadowBlur=nucR*0.03; }
+      else { g.addColorStop(0,'rgba(150,240,200,0.95)'); g.addColorStop(1,'rgba(70,200,140,0.9)'); ctx.shadowColor='rgba(90,220,160,0.5)'; ctx.shadowBlur=nucR*0.03; }
+      ctx.beginPath(); ctx.arc(b.x,b.y,br,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
+      if(scanningHere||locked){ ctx.beginPath(); ctx.arc(b.x,b.y,br*(1.5+0.3*Math.sin(animT*0.15)),0,Math.PI*2); ctx.strokeStyle=(locked||revealed)?'rgba(255,215,110,0.7)':'rgba(150,240,200,0.6)'; ctx.lineWidth=nucR*0.006; ctx.shadowBlur=0; ctx.stroke(); }
+      ctx.restore();
+      if(isCodon&&revealed){
+        const labelY=b.y-br*3.4;
+        ctx.save(); ctx.beginPath(); ctx.setLineDash([nucR*0.008,nucR*0.010]);
+        ctx.moveTo(b.x,labelY+nucR*0.020); ctx.lineTo(b.x,b.y-br*1.05);
+        ctx.strokeStyle='rgba(255,225,140,0.28)'; ctx.lineWidth=nucR*0.004; ctx.stroke(); ctx.restore();
+        ctx.save(); ctx.font=`bold ${(nucR*0.032).toFixed(1)}px 'Space Mono','Roboto Mono',ui-monospace,monospace`;
+        ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='rgba(255,228,120,0.97)';
+        ctx.shadowColor='rgba(255,200,80,0.75)'; ctx.shadowBlur=nucR*0.025; ctx.fillText(CODON[i],b.x,labelY); ctx.restore();
+      }
+    });
+  }
+
+  drawM7GCap(nodes[0].x, nodes[0].y, nucR*0.055);
+}
+
+function drawRibosomeSubunit(cx, cy, R, seed, opts){
+  const { base, light, edge, lumps=8, lumpAmp=0.16, cleft=null, rotation=0 } = opts;
+  let s=seed; const rnd=()=>{ s=(s*1103515245+12345)&0x7fffffff; return (s>>8)/0x7fffff; };
+  const rgb=(a)=>`rgb(${a[0]},${a[1]},${a[2]})`, rgba=(a,al)=>`rgba(${a[0]},${a[1]},${a[2]},${al})`;
+  const N=48, bumps=[];
+  for(let i=0;i<lumps;i++) bumps.push({ang:rnd()*Math.PI*2,w:0.5+rnd()*0.9,amp:(0.5+rnd()*0.5)*lumpAmp});
+  const radiusAt=(theta)=>{ let rr=1; for(const b of bumps){ let d=Math.abs(((theta-b.ang+Math.PI*3)%(Math.PI*2))-Math.PI); rr+=Math.cos(Math.min(Math.PI,d/b.w))*b.amp*0.5+b.amp*0.5*Math.exp(-(d*d)/(b.w*b.w)); } if(cleft!==null){ let d=Math.abs(((theta-cleft+Math.PI*3)%(Math.PI*2))-Math.PI); rr-=0.28*Math.exp(-(d*d)/0.18); } return rr; };
+  ctx.save(); ctx.translate(cx,cy); if(rotation) ctx.rotate(rotation);
+  const glow=ctx.createRadialGradient(0,0,R*0.4,0,0,R*1.5);
+  glow.addColorStop(0,rgba(light,0.20)); glow.addColorStop(1,rgba(light,0));
+  ctx.beginPath(); ctx.arc(0,0,R*1.5,0,Math.PI*2); ctx.fillStyle=glow; ctx.fill();
+  ctx.beginPath();
+  for(let i=0;i<=N;i++){ const th=(i/N)*Math.PI*2, rr=R*radiusAt(th); const px=Math.cos(th)*rr, py=Math.sin(th)*rr*0.92; if(i===0)ctx.moveTo(px,py); else ctx.lineTo(px,py); }
+  ctx.closePath();
+  const bg=ctx.createRadialGradient(-R*0.3,-R*0.3,0,0,0,R*1.2);
+  bg.addColorStop(0,rgb(light)); bg.addColorStop(0.6,rgb(base)); bg.addColorStop(1,rgba(base,0.82));
+  ctx.fillStyle=bg; ctx.shadowColor='rgba(0,0,0,0.25)'; ctx.shadowBlur=R*0.12; ctx.shadowOffsetY=R*0.05; ctx.fill();
+  ctx.shadowBlur=0; ctx.shadowOffsetY=0;
+  ctx.save(); ctx.clip();
+  const grains=Math.round(R*1.6);
+  for(let i=0;i<grains;i++){ const a=rnd()*Math.PI*2, rr=Math.sqrt(rnd())*R*0.95; const gx=Math.cos(a)*rr, gy=Math.sin(a)*rr*0.92; const gsz=R*(0.06+rnd()*0.10); const dark=rnd()>0.5; ctx.beginPath(); ctx.arc(gx,gy,gsz,0,Math.PI*2); ctx.fillStyle=dark?rgba(base,0.28):rgba(light,0.30); ctx.fill(); }
+  ctx.restore();
+  ctx.beginPath();
+  for(let i=0;i<=N;i++){ const th=(i/N)*Math.PI*2, rr=R*radiusAt(th); const px=Math.cos(th)*rr, py=Math.sin(th)*rr*0.92; if(i===0)ctx.moveTo(px,py); else ctx.lineTo(px,py); }
+  ctx.closePath(); ctx.strokeStyle=rgba(edge,0.9); ctx.lineWidth=R*0.05; ctx.lineJoin='round'; ctx.stroke();
+  ctx.restore();
+}
+
+function drawTranslationComplex(r){
+  const rad=r.radius;
+  const s40=translation.small40S, s60=translation.large60S;
+  const smallX=r.x+s40.x*rad, smallY=r.y+s40.y*rad;
+  const largeX=r.x+s60.x*rad, largeY=r.y+s60.y*rad;
+  drawRibosomeSubunit(largeX,largeY,rad*1.15,6001,{base:[206,182,138],light:[232,212,168],edge:[245,232,200],lumps:9,lumpAmp:0.16});
+  drawRibosomeSubunit(smallX,smallY,rad*0.9,4002,{base:[220,198,150],light:[244,228,185],edge:[252,244,215],lumps:8,lumpAmp:0.18,
+    cleft: exportChain ? (()=>{ const a=currentMrnaAnchorNode(); return Math.atan2(a.y-smallY, a.x-smallX); })() : Math.PI/2});
+  if((translation.step==='SMALL_SUBUNIT_BINDING'||translation.step==='SMALL_BOUND')&&exportChain){
+    const cap=exportChain.nodes[0]; const dx=cap.x-smallX, dy=cap.y-smallY;
+    const near=1-Math.min(1,Math.hypot(dx,dy)/(rad*1.6));
+    if(near>0.02){ const mx=(smallX+cap.x)/2, my=(smallY+cap.y)/2; ctx.save();
+      const bridge=ctx.createRadialGradient(mx,my,0,mx,my,rad*0.8);
+      bridge.addColorStop(0,`rgba(150,235,255,${(0.4*near).toFixed(3)})`); bridge.addColorStop(1,'rgba(150,235,255,0)');
+      ctx.beginPath(); ctx.arc(mx,my,rad*0.8,0,Math.PI*2); ctx.fillStyle=bridge; ctx.fill(); ctx.restore(); }
+  }
+}
+
+// Intact (un-split) ribosome — a single lumpy blob, before magnify/split.
+// Intact (un-split) ribosome — two-lobed silhouette: large subunit body +
+// small subunit "head" (the docking site), each an ellipse with radial
+// shading. Matches the full simulator's ribosome look exactly.
+function drawIntactRibosome(r){
+  const isActive = (r===boundRibosome) && (mrnaBindState==='DOCKING'||mrnaBindState==='HOVERING'||mrnaBindState==='TRANSLATING');
+
+  ctx.save();
+  const glowR = r.radius*(isActive?2.4:1.7);
+  const g = ctx.createRadialGradient(r.x,r.y,r.radius*0.3,r.x,r.y,glowR);
+  if(isActive){ g.addColorStop(0,'rgba(150,235,205,0.30)'); g.addColorStop(1,'rgba(150,235,205,0)'); }
+  else { g.addColorStop(0,'rgba(240,220,170,0.14)'); g.addColorStop(1,'rgba(240,220,170,0)'); }
+  ctx.beginPath(); ctx.arc(r.x,r.y,glowR,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(r.x,r.y); ctx.rotate(r.rotation);
+
+  // Large subunit
+  const lg=ctx.createRadialGradient(-r.radius*0.2,r.radius*0.0,0,0,r.radius*0.18,r.radius*1.1);
+  lg.addColorStop(0,isActive?'rgba(225,205,160,0.80)':'rgba(220,198,158,0.66)');
+  lg.addColorStop(1,isActive?'rgba(200,178,132,0.72)':'rgba(195,172,128,0.55)');
+  ctx.beginPath(); ctx.ellipse(0,r.radius*0.18,r.radius*0.95,r.radius*0.78,0,0,Math.PI*2);
+  ctx.fillStyle=lg; ctx.strokeStyle=isActive?'rgba(245,235,205,0.95)':'rgba(235,215,175,0.75)';
+  ctx.lineWidth=r.radius*0.09; ctx.fill(); ctx.stroke();
+
+  // Small subunit (the head — docking site)
+  const sg=ctx.createRadialGradient(-r.radius*0.15,-r.radius*0.7,0,0,-r.radius*0.62,r.radius*0.7);
+  sg.addColorStop(0,isActive?'rgba(240,224,180,0.9)':'rgba(232,212,168,0.72)');
+  sg.addColorStop(1,isActive?'rgba(215,196,150,0.82)':'rgba(208,186,140,0.62)');
+  ctx.beginPath(); ctx.ellipse(0,-r.radius*0.62,r.radius*0.62,r.radius*0.48,0,0,Math.PI*2);
+  ctx.fillStyle=sg; ctx.strokeStyle=isActive?'rgba(250,240,210,0.95)':'rgba(245,230,190,0.8)';
+  ctx.lineWidth=r.radius*0.08; ctx.fill(); ctx.stroke();
+
+  ctx.restore();
+}
+
+// ── Background dish ─────────────────────────────────────────────────────
+function drawDishBG(){
+  ctx.beginPath(); ctx.arc(CX,CY,SIZE*0.496,0,Math.PI*2);
+  const bg=ctx.createRadialGradient(CX-SIZE*0.1,CY-SIZE*0.15,0,CX,CY,SIZE*0.496);
+  bg.addColorStop(0,'#04121a'); bg.addColorStop(0.7,'#02090f'); bg.addColorStop(1,'#01060a');
+  ctx.fillStyle=bg; ctx.fill();
+  // faint cytoplasm speckle
+  ctx.save(); ctx.clip();
+  for(let i=0;i<60;i++){ const a=(i*2.399), rr=Math.sqrt((i/60))*SIZE*0.48; const x=CX+Math.cos(a)*rr, y=CY+Math.sin(a)*rr;
+    ctx.beginPath(); ctx.arc(x,y,SIZE*0.004,0,Math.PI*2); ctx.fillStyle='rgba(80,150,180,0.05)'; ctx.fill(); }
+  ctx.restore();
+  // rim
+  ctx.beginPath(); ctx.arc(CX,CY,SIZE*0.496,0,Math.PI*2);
+  ctx.strokeStyle='rgba(0,180,255,0.10)'; ctx.lineWidth=SIZE*0.006; ctx.stroke();
+}
+
+function drawCaption(){
+  if(captionAlpha<=0.001) return;
+  ctx.save();
+  ctx.globalAlpha=captionAlpha;
+  ctx.font=`600 ${(nucR*0.048).toFixed(1)}px 'Inter','Roboto',system-ui,sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(255,240,180,0.96)';
+  ctx.shadowColor='rgba(0,0,0,0.7)'; ctx.shadowBlur=nucR*0.03;
+  ctx.fillText(captionText, CX, CY - SIZE*0.40);
+  ctx.restore();
+}
+
+// ── Main render loop ────────────────────────────────────────────────────
+// ── Ambient cytoplasm particles (Brownian motion) ───────────────────────
+// Purely decorative, self-initializing, reads only CX/CY/nucR each frame —
+// doesn't touch or depend on any simulation state, so it can't interact
+// with (or be broken by) anything else in the file.
+let cytoParticles = null;
+function initCytoParticles(){
+  cytoParticles = [];
+  const count = 34;
+  for (let i=0;i<count;i++){
+    const a = Math.random()*Math.PI*2, rr = Math.sqrt(Math.random())*nucR*0.94;
+    cytoParticles.push({
+      x: CX+Math.cos(a)*rr, y: CY+Math.sin(a)*rr,
+      vx: (Math.random()-0.5)*0.12, vy: (Math.random()-0.5)*0.12,
+      r: 0.6+Math.random()*1.5,
+      alpha: 0.12+Math.random()*0.22,
+    });
+  }
+}
+function updateAndDrawCytoParticles(){
+  if (!cytoParticles) initCytoParticles();
+  const maxR = nucR*0.95;
+  ctx.save();
+  cytoParticles.forEach(p=>{
+    // small random jitter each frame (Brownian), lightly damped so it
+    // doesn't accelerate away — a gentle drift-and-wobble, not a bounce.
+    p.vx += (Math.random()-0.5)*0.045; p.vy += (Math.random()-0.5)*0.045;
+    p.vx *= 0.96; p.vy *= 0.96;
+    p.x += p.vx; p.y += p.vy;
+    const dx=p.x-CX, dy=p.y-CY, d=Math.hypot(dx,dy)||0.0001;
+    if (d>maxR){ p.vx -= (dx/d)*0.03; p.vy -= (dy/d)*0.03; } // gentle nudge back inside the dish
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle = `rgba(180,220,255,${p.alpha})`;
+    ctx.fill();
+  });
+  ctx.restore();
+}
+
+// ── Microscope-eyepiece framing for the dish rim ────────────────────────
+function drawMicroscopeRim(){
+  ctx.save();
+  const vg = ctx.createRadialGradient(CX,CY,nucR*0.55, CX,CY,nucR*1.0);
+  vg.addColorStop(0,'rgba(0,0,0,0)');
+  vg.addColorStop(1,'rgba(0,0,0,0.38)');
+  ctx.beginPath(); ctx.arc(CX,CY,nucR,0,Math.PI*2); ctx.fillStyle=vg; ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath(); ctx.arc(CX,CY,nucR*0.985,0,Math.PI*2);
+  ctx.strokeStyle='rgba(180,225,255,0.32)'; ctx.lineWidth=nucR*0.012; ctx.stroke();
+  ctx.beginPath(); ctx.arc(CX,CY,nucR*0.965,0,Math.PI*2);
+  ctx.strokeStyle='rgba(120,190,240,0.16)'; ctx.lineWidth=nucR*0.02; ctx.stroke();
+  ctx.restore();
+}
+
+function render(){
+  animT++;
+  ctx.clearRect(0,0,SIZE,SIZE);
+
+  // Cinematic zoom-out for the charging scene — it spans more of the dish
+  // than the initiation close-up did, so pull back while it plays, then
+  // ease back in once charging resolves (DONE) or hasn't started (IDLE).
+  const targetZoom = (charging.step!=='IDLE' && charging.step!=='DONE') ? 0.72 : 1;
+  sceneZoom += (targetZoom - sceneZoom) * 0.05;
+  ctx.save();
+  ctx.translate(CX,CY); ctx.scale(sceneZoom,sceneZoom); ctx.translate(-CX,-CY);
+
+  drawDishBG();
+  updateAndDrawCytoParticles();
+
+  // mRNA docking: the head advances along a straight guide line to the
+  // ribosome's surface point; each following node trails the one ahead at
+  // rest-length spacing (snake-follow) — the head turns to face the
+  // ribosome and the body follows naturally, no rotation math needed.
+  if (mrnaBindState==='DOCKING' && boundRibosome && dockGuide){
+    dockStateT++;
+    dockGuide.t = Math.min(1, dockGuide.t + DOCK_GLIDE_SPEED/Math.max(dockGuide.len/nucR, 0.001));
+    const capX = dockGuide.x0 + (dockGuide.x1-dockGuide.x0)*dockGuide.t;
+    const capY = dockGuide.y0 + (dockGuide.y1-dockGuide.y0)*dockGuide.t;
+    exportChain.nodes[0].rax = capX; exportChain.nodes[0].ray = capY;
+    for (let i=1;i<exportChain.nodes.length;i++){
+      const ahead=exportChain.nodes[i-1], me=exportChain.nodes[i];
+      const dx=me.rax-ahead.rax, dy=me.ray-ahead.ray;
+      const d=Math.hypot(dx,dy)||0.0001, ux=dx/d, uy=dy/d;
+      const tx=ahead.rax+ux*exportChain.restLen, ty=ahead.ray+uy*exportChain.restLen;
+      me.rax += (tx-me.rax)*0.5; me.ray += (ty-me.ray)*0.5;
+    }
+    if (dockGuide.t >= 0.999){ mrnaBindState='HOVERING'; hoverStateT=0; }
+  } else if(mrnaBindState==='HOVERING'){
+    hoverStateT++;
+    if(hoverStateT>=HOVER_FRAMES){
+      mrnaBindState='TRANSLATING';
+      if(boundRibosome) boundRibosome.state=RIBOSOME_BOUND;
+      setHint('Click <span class="geo-glyph">⌖</span> to magnify the ribosome');
+      setCard('mRNA docked','The mRNA is now positioned at the ribosome. Click <span class="geo-glyph">⌖</span> to begin translation initiation.');
+    }
+  }
+
+  // Stationary rest + ripple: every node springs toward its rest anchor
+  // (moved by the docking step above) with a small traveling shimmer on
+  // top — this is what actually advances the visible strand, every state.
+  if (exportChain){
+    const rippleAmp = (mrnaBindState==='HOVERING'||mrnaBindState==='TRANSLATING') ? RIPPLE_AMP*0.4 : RIPPLE_AMP;
+    exportChain.nodes.forEach((n,i)=>{
+      const phase = animT*RIPPLE_SPEED + i*RIPPLE_WAVELENGTH;
+      const rx = Math.cos(phase)*rippleAmp*nucR, ry = Math.sin(phase*1.3)*rippleAmp*nucR;
+      const targetX = n.rax+rx, targetY = n.ray+ry;
+      const vx = (n.x-n.px)*REST_DAMPING, vy = (n.y-n.py)*REST_DAMPING;
+      n.px=n.x; n.py=n.y;
+      n.x += vx + (targetX-n.x)*REST_STIFFNESS;
+      n.y += vy + (targetY-n.y)*REST_STIFFNESS;
+    });
+    for (let iter=0; iter<CYTO_CONSTRAINT_ITERS; iter++){
+      for (let i=1;i<exportChain.nodes.length;i++){
+        const a=exportChain.nodes[i-1], b=exportChain.nodes[i];
+        const ddx=b.x-a.x, ddy=b.y-a.y;
+        const d=Math.hypot(ddx,ddy)||0.0001;
+        const diff=(d-exportChain.restLen)/d;
+        a.x += ddx*diff*0.5; a.y += ddy*diff*0.5;
+        b.x -= ddx*diff*0.5; b.y -= ddy*diff*0.5;
+      }
+    }
+    if (mrnaBindState==='FREE'){
+      const DISH_R = SIZE*0.46;
+      exportChain.nodes.forEach(n=>{
+        for (const key of [['x','y','px','py'], ['rax','ray',null,null]]){
+          const [kx,ky,kpx,kpy]=key;
+          const ddx=n[kx]-CX, ddy=n[ky]-CY, d=Math.hypot(ddx,ddy)||0.0001;
+          if(d>DISH_R){ const sc=DISH_R/d; n[kx]=CX+ddx*sc; n[ky]=CY+ddy*sc; if(kpx){ n[kpx]=n[kx]; n[kpy]=n[ky]; } }
+        }
+      });
+    }
+  }
+
+  updateTranslation();
+  updateCharging();
+  updateBinding();
+  updateBonding();
+  updateTermination();
+
+  // draw mRNA (under the ribosome)
+  drawMrna();
+
+  // draw ribosomes
+  if(ribosomes){
+    ribosomes.forEach(r=>{
+      r.rotation += r.rotationSpeed;
+      if(r===boundRibosome && translationInitiationStarted){
+        drawTranslationComplex(r);
+      } else {
+        drawIntactRibosome(r);
+      }
+    });
+  }
+
+  drawChargingScene();
+  drawBondingPulse();
+  drawPolypeptideChain();
+  drawReleaseFactor();
+
+  // caption fade
+  if(captionHold>0){ captionHold--; } else if(captionAlpha>0){ captionAlpha=Math.max(0,captionAlpha-0.02); }
+
+  drawCaption();
+  drawMicroscopeRim();
+  ctx.restore();
+  requestAnimationFrame(render);
+}
+
+// ── Input ───────────────────────────────────────────────────────────────
+function canvasPos(e){
+  const rect=mainCanvas.getBoundingClientRect();
+  const cx=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+  const cy=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+  return { x:cx*(SIZE/rect.width), y:cy*(SIZE/rect.height) };
+}
+mainCanvas.addEventListener('click', e=>{ const p=canvasPos(e); if(!tryTapPolypeptideBead(p.x,p.y)) tapAt(p.x,p.y); });
+mainCanvas.addEventListener('touchstart', e=>{ if(e.preventDefault)e.preventDefault(); const p=canvasPos(e); if(!tryTapPolypeptideBead(p.x,p.y)) tapAt(p.x,p.y); }, {passive:false});
+
+// advance button (single-tap advancer, touch + click de-duped)
+(function wireAdvance(){
+  const btn=document.getElementById('btnAdvance'); if(!btn) return;
+  let lastTouch=0;
+  btn.addEventListener('touchstart', e=>{ if(e.preventDefault)e.preventDefault(); lastTouch=Date.now(); startTranslationInitiation(); }, {passive:false});
+  btn.addEventListener('click', e=>{ if(Date.now()-lastTouch<600) return; startTranslationInitiation(); });
+})();
+
+// charge button (same touch/click de-dupe pattern)
+(function wireCharge(){
+  const btn=document.getElementById('btnCharge'); if(!btn) return;
+  let lastTouch=0;
+  btn.addEventListener('touchstart', e=>{ if(e.preventDefault)e.preventDefault(); lastTouch=Date.now(); handleChargeButtonTap(); }, {passive:false});
+  btn.addEventListener('click', e=>{ if(Date.now()-lastTouch<600) return; handleChargeButtonTap(); });
+})();
+
+(function wireBind(){
+  const btn=document.getElementById('btnBind'); if(!btn) return;
+  let lastTouch=0;
+  btn.addEventListener('touchstart', e=>{ if(e.preventDefault)e.preventDefault(); lastTouch=Date.now(); startBinding(); }, {passive:false});
+  btn.addEventListener('click', e=>{ if(Date.now()-lastTouch<600) return; startBinding(); });
+})();
+
+(function wireBond(){
+  const btn=document.getElementById('btnBond'); if(!btn) return;
+  let lastTouch=0;
+  btn.addEventListener('touchstart', e=>{ if(e.preventDefault)e.preventDefault(); lastTouch=Date.now(); startBonding(); }, {passive:false});
+  btn.addEventListener('click', e=>{ if(Date.now()-lastTouch<600) return; startBonding(); });
+})();
+
+// reset
+document.getElementById('btnReset').addEventListener('click', ()=>{
+  translationInitiationStarted=false;
+  translation={ step:'IDLE', stepT:0, small40S:{x:0,y:0}, large60S:{x:0,y:0}, small40Target:null, large60Target:null, scanBead:0, augFound:false, augLetters:0, augLabelAlpha:1, augLockT:0, eightyS:false };
+  mrnaBindState='FREE'; boundRibosome=null; dockGuide=null; dockStateT=0; hoverStateT=0;
+  captionAlpha=0; captionHold=0;
+  buildMrna(); initRibosomes();
+  resetElongationUI();
+  setHint('Click a <strong>ribosome</strong> to navigate the mRNA to it');
+  const c=document.getElementById('card'); if(c) c.classList.remove('show');
+});
+
+// ── Boot ────────────────────────────────────────────────────────────────
+let _lastW = 0;
+function init(){
+  applySize();
+  _lastW = window.innerWidth || 0;
+  buildMrna();
+  initRibosomes();
+  render();
+}
+window.addEventListener('resize', ()=>{
+  const w=window.innerWidth||0; if(Math.abs(w-_lastW)<8) return; _lastW=w;
+  // re-layout: rebuild geometry for the new size (only if idle)
+  applySize();
+  if(mrnaBindState==='FREE' && !translationInitiationStarted){ buildMrna(); initRibosomes(); }
+});
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+</script>
+</body>
+</html>
