@@ -7,14 +7,15 @@
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body { height:100%; }
+  :root { --ui-mono-font: 'Inter','Roboto','Segoe UI','Helvetica Neue',system-ui,sans-serif; }
   body {
     background:#03050a; min-height:100vh;
     display:flex; flex-direction:column; align-items:center;
     font-family:'Inter','Roboto','Segoe UI','Helvetica Neue',system-ui,sans-serif; overflow-x:hidden;
     padding:14px 16px 28px; gap:0;
   }
-  .header { text-align:center; margin-bottom:12px; margin-top:2px; }
-  .eyebrow { font-family:'Space Mono','Roboto Mono','DejaVu Sans Mono','SF Mono',ui-monospace,'Courier New',monospace; font-size:clamp(15px,4.2vw,24px); font-weight:700; letter-spacing:0.5px; color:rgba(220,245,255,0.95); margin-bottom:5px; }
+  .header { text-align:center; margin-bottom:12px; margin-top:2px; position:relative; }
+  .eyebrow { font-family:var(--ui-mono-font); font-size:clamp(15px,4.2vw,24px); font-weight:700; letter-spacing:0.5px; color:rgba(220,245,255,0.95); margin-bottom:5px; }
   .title { font-size:clamp(12px,3.2vw,17px); font-weight:400; color:rgba(0,200,255,0.82); letter-spacing:0.3px; }
   .title span { color:#00c8ff; font-weight:600; }
   .subtitle { font-size:clamp(11px,2.6vw,13px); color:rgba(160,220,255,0.72); font-weight:400; letter-spacing:0.6px; margin-top:4px; }
@@ -47,7 +48,7 @@
     background:rgba(0,18,52,0.7); border:1px solid rgba(0,200,255,0.22);
     color:rgba(150,215,255,0.85); border-radius:999px;
     padding:9px 16px; font-size:12px; letter-spacing:0.4px; cursor:pointer;
-    font-family:'Space Mono','Roboto Mono',ui-monospace,monospace;
+    font-family:var(--ui-mono-font);
     transition:border-color 0.15s, color 0.15s;
   }
   .reset-btn:hover { border-color:rgba(0,200,255,0.5); color:rgba(200,235,255,0.95); }
@@ -67,7 +68,7 @@
     opacity:0; transform:translateY(8px); transition:opacity 0.4s ease, transform 0.4s ease;
   }
   .card.show { opacity:1; transform:translateY(0); }
-  .card-name { font-family:'Space Mono','Roboto Mono',ui-monospace,monospace; font-size:12px; font-weight:700; letter-spacing:1.4px; text-transform:uppercase; margin-bottom:6px; color:#f5c542; }
+  .card-name { font-family:var(--ui-mono-font); font-size:12px; font-weight:700; letter-spacing:1.4px; text-transform:uppercase; margin-bottom:6px; color:#f5c542; }
   .card-detail { font-size:14px; color:rgba(200,225,250,0.85); line-height:1.6; font-weight:300; }
   .card-detail strong { color:#3ad2ff; font-weight:500; }
 
@@ -102,7 +103,7 @@
   .bubble {
     width:34px; height:34px; border-radius:50%;
     background:rgba(0,18,52,0.85); border:1.5px solid rgba(0,200,255,0.35);
-    color:rgba(190,225,255,0.9); font:700 12px 'Space Mono','Roboto Mono',monospace;
+    color:rgba(190,225,255,0.9); font:700 12px var(--ui-mono-font);
     display:flex; align-items:center; justify-content:center; cursor:pointer;
     transition:transform 0.15s, border-color 0.15s;
   }
@@ -118,7 +119,7 @@
   .export-btn {
     background:rgba(0,18,52,0.9); border:1.5px solid rgba(120,255,190,0.5);
     color:rgba(180,255,220,0.95); border-radius:999px; padding:9px 22px;
-    font:700 12.5px 'Space Mono','Roboto Mono',monospace; letter-spacing:0.5px; cursor:pointer;
+    font:700 12.5px var(--ui-mono-font); letter-spacing:0.5px; cursor:pointer;
     transition:opacity 0.15s, border-color 0.15s;
   }
   .export-btn:hover:not(:disabled) { border-color:rgba(120,255,190,0.9); }
@@ -137,13 +138,13 @@
     position:absolute; top:8px; right:10px; background:none; border:none;
     color:rgba(200,225,255,0.6); font-size:15px; cursor:pointer; padding:2px 4px;
   }
-  .popup-title { font:700 12px 'Space Mono','Roboto Mono',monospace; letter-spacing:0.6px; color:rgba(200,230,255,0.9); margin:0; text-align:center; }
-  .codon-display { font:700 22px 'Space Mono','Roboto Mono',monospace; letter-spacing:4px; color:#3ad2ff; margin:0; }
+  .popup-title { font:700 12px var(--ui-mono-font); letter-spacing:0.6px; color:rgba(200,230,255,0.9); margin:0; text-align:center; }
+  .codon-display { font:700 22px var(--ui-mono-font); letter-spacing:4px; color:#3ad2ff; margin:0; }
   .base-options { display:flex; gap:10px; }
   .base-btn {
     width:42px; height:42px; border-radius:50%; cursor:pointer;
     background:rgba(0,18,52,0.9); border:1.5px solid rgba(0,200,255,0.4);
-    color:rgba(210,235,255,0.95); font:700 15px 'Space Mono','Roboto Mono',monospace;
+    color:rgba(210,235,255,0.95); font:700 15px var(--ui-mono-font);
     transition:transform 0.15s, border-color 0.15s;
   }
   .base-btn:active { transform:scale(0.92); }
@@ -170,7 +171,7 @@
   .chain-bead {
     display:inline-flex; align-items:center; justify-content:center;
     min-width:36px; height:28px; padding:0 9px; border-radius:14px;
-    font:700 11px 'Space Mono','Roboto Mono',monospace;
+    font:700 11px var(--ui-mono-font);
     border:1.5px solid rgba(255,255,255,0.22);
   }
   .chain-bead.cls-nonpolar { background:#f5d24a; color:#3a2e05; }
@@ -181,7 +182,7 @@
   .chain-arrow { color:rgba(170,205,235,0.55); font-size:13px; }
   .codon-col { display:flex; flex-direction:column; align-items:center; gap:3px; padding:4px 3px; border-radius:9px; }
   .codon-col.active { background:rgba(150,215,255,0.12); box-shadow:0 0 0 1.5px rgba(150,215,255,0.6); }
-  .codon-top { font:700 10px 'Space Mono','Roboto Mono',monospace; color:rgba(190,218,245,0.8); letter-spacing:0.5px; }
+  .codon-top { font:700 10px var(--ui-mono-font); color:rgba(190,218,245,0.8); letter-spacing:0.5px; }
 
   /* ── Elongation controls (Charge / Bind / Bond) ──────────────────────── */
   .elong-pill { display:none; gap:8px; align-items:center; }
@@ -189,7 +190,7 @@
   .elong-btn {
     background:rgba(0,18,52,0.9); border:1.5px solid rgba(190,150,255,0.45);
     color:rgba(220,205,255,0.92); border-radius:999px; padding:8px 14px;
-    font:700 11.5px 'Space Mono','Roboto Mono',monospace; letter-spacing:0.3px; cursor:pointer;
+    font:700 11.5px var(--ui-mono-font); letter-spacing:0.3px; cursor:pointer;
     transition:opacity 0.15s, border-color 0.15s;
   }
   .elong-btn:hover:not(:disabled) { border-color:rgba(190,150,255,0.9); }
@@ -274,6 +275,17 @@
 const mainCanvas = document.getElementById('mainCanvas');
 const ctx = mainCanvas.getContext('2d');
 let SIZE, CX, CY, dpr = 1, animT = 0;
+// Matches --ui-mono-font in the stylesheet — canvas text can't read CSS
+// variables directly, so this is kept as a plain constant.
+const uiMonoFont = "'Inter','Roboto','Segoe UI','Helvetica Neue',system-ui,sans-serif";
+// Keeps the ribosome's subunit offsets (small40S/large60S) within a sane
+// magnitude — the bead-based easing targets that feed these can drift far
+// depending on the mRNA's exact curve shape, which would otherwise let the
+// two subunits visually separate far from each other/their anchor.
+function clampOffsetMagnitude(obj, maxMag){
+  const m = Math.hypot(obj.x, obj.y);
+  if (m > maxMag){ const sc = maxMag/m; obj.x *= sc; obj.y *= sc; }
+}
 let sceneZoom = 1; // eases out while charging plays, back to 1 once done
 
 // A single scene scale used everywhere (stands in for the old nucR).
@@ -475,6 +487,7 @@ function updateTranslation(){
     const w={x:1.3,y:0.6};
     translation.large60S.x+=(w.x-translation.large60S.x)*SMALL_BIND_EASE;
     translation.large60S.y+=(w.y-translation.large60S.y)*SMALL_BIND_EASE;
+    clampOffsetMagnitude(translation.small40S, 2.6); clampOffsetMagnitude(translation.large60S, 3.1);
     if(translation.stepT>=SMALL_BIND_FRAMES){ translation.step='SMALL_BOUND'; translation.stepT=0; }
   }
   if (translation.step==='SCANNING'){
@@ -485,12 +498,13 @@ function updateTranslation(){
       translation.scanBead=idx;
       translation.augLetters=Math.max(translation.augLetters||0, idx+1);
       const target=beads[idx];
-      const tx=(target.x-r.x)/rad, ty=(target.y-r.y)/rad-0.5;
+      let tx=(target.x-r.x)/rad, ty=(target.y-r.y)/rad-0.5; { const m=Math.hypot(tx,ty); if(m>2.6){ const sc=2.6/m; tx*=sc; ty*=sc; } }
       translation.small40S.x+=(tx-translation.small40S.x)*SCAN_EASE;
       translation.small40S.y+=(ty-translation.small40S.y)*SCAN_EASE;
       const w={x:1.3,y:0.6};
       translation.large60S.x+=(w.x-translation.large60S.x)*SCAN_EASE;
       translation.large60S.y+=(w.y-translation.large60S.y)*SCAN_EASE;
+      clampOffsetMagnitude(translation.small40S, 2.6); clampOffsetMagnitude(translation.large60S, 3.1);
       if(idx===2 && translation.stepT>=SCAN_FRAMES_PER_BEAD*2+SCAN_SETTLE){
         translation.step='AUG_READING'; translation.stepT=0; translation.augLabelAlpha=1;
       }
@@ -501,9 +515,10 @@ function updateTranslation(){
     const beads=codonBeadPositions();
     if(beads.length>=4){
       const target=beads[2];
-      const tx=(target.x-r.x)/rad, ty=(target.y-r.y)/rad-0.5;
+      let tx=(target.x-r.x)/rad, ty=(target.y-r.y)/rad-0.5; { const m=Math.hypot(tx,ty); if(m>2.6){ const sc=2.6/m; tx*=sc; ty*=sc; } }
       translation.small40S.x+=(tx-translation.small40S.x)*0.12;
       translation.small40S.y+=(ty-translation.small40S.y)*0.12;
+      clampOffsetMagnitude(translation.small40S, 2.6);
     }
     if(!translation.augFound){
       translation.augFound=true; translation.augLetters=3;
@@ -520,12 +535,13 @@ function updateTranslation(){
     const beads=codonBeadPositions();
     if(beads.length>=4){
       const g=beads[2];
-      const tx=(g.x-r.x)/rad, ty=(g.y-r.y)/rad-0.5;
+      let tx=(g.x-r.x)/rad, ty=(g.y-r.y)/rad-0.5; { const m=Math.hypot(tx,ty); if(m>2.6){ const sc=2.6/m; tx*=sc; ty*=sc; } }
       translation.small40S.x+=(tx-translation.small40S.x)*0.10;
       translation.small40S.y+=(ty-translation.small40S.y)*0.10;
       const join={x:tx,y:ty+1.15};
       translation.large60S.x+=(join.x-translation.large60S.x)*JOIN_EASE;
       translation.large60S.y+=(join.y-translation.large60S.y)*JOIN_EASE;
+      clampOffsetMagnitude(translation.small40S, 2.6); clampOffsetMagnitude(translation.large60S, 3.1);
       const d=Math.hypot(translation.large60S.x-join.x, translation.large60S.y-join.y);
       if(d<0.05 || translation.stepT>JOIN_FRAMES){
         translation.step='EIGHTYS_FORMED'; translation.stepT=0; translation.eightyS=true;
@@ -536,15 +552,18 @@ function updateTranslation(){
   }
   if (translation.step==='EIGHTYS_FORMED'){
     translation.stepT++;
-    const beads=codonBeadPositions();
-    if(beads.length>=4){
-      const g=beads[2];
-      const tx=(g.x-r.x)/rad, ty=(g.y-r.y)/rad-0.5;
-      translation.small40S.x+=(tx-translation.small40S.x)*0.10;
-      translation.small40S.y+=(ty-translation.small40S.y)*0.10;
-      const join={x:tx,y:ty+1.15};
-      translation.large60S.x+=(join.x-translation.large60S.x)*0.12;
-      translation.large60S.y+=(join.y-translation.large60S.y)*0.12;
+    if (!exportChain.codonAnchorIndex){
+      const beads=codonBeadPositions();
+      if(beads.length>=4){
+        const g=beads[2];
+        let tx=(g.x-r.x)/rad, ty=(g.y-r.y)/rad-0.5; { const m=Math.hypot(tx,ty); if(m>2.6){ const sc=2.6/m; tx*=sc; ty*=sc; } }
+        translation.small40S.x+=(tx-translation.small40S.x)*0.10;
+        translation.small40S.y+=(ty-translation.small40S.y)*0.10;
+        const join={x:tx,y:ty+1.15};
+        translation.large60S.x+=(join.x-translation.large60S.x)*0.12;
+        translation.large60S.y+=(join.y-translation.large60S.y)*0.12;
+        clampOffsetMagnitude(translation.small40S, 2.6); clampOffsetMagnitude(translation.large60S, 3.1);
+      }
     }
     if(translation.stepT===EIGHTYS_BEAT2_DELAY) showTranslationCaption('Translation begins');
     if(translation.stepT===EIGHTYS_BEAT2_DELAY) unlockElongationUI();
@@ -853,21 +872,46 @@ function updateCharging(){
     charging.trnaX = geo.leftNotch.x; charging.trnaY = geo.leftNotch.y;
     charging.bondT = Math.min(1, charging.stepT/CHARGE_BOND_FRAMES);
     if (charging.bondT>=1){ charging.step='RELEASING'; charging.stepT=0;
+      // Compute the release hold-point ONCE here, not every frame during
+      // RELEASING below. After translocation, the ribosome sits almost
+      // exactly on top of its own mRNA anchor node, so "direction away
+      // from the anchor" is a near-zero vector whose normalized direction
+      // is numerically unstable — recomputing it every frame (reading a
+      // live, ripple-wobbling node position) made the held tRNA visibly
+      // jitter frame to frame. Computing it once and holding it fixed for
+      // the whole ease avoids that entirely.
+      let holdX = geo.cx, holdY = geo.cy - geo.R*2.6;
+      if (boundRibosome){
+        const anchor = currentMrnaAnchorNode();
+        const adx = boundRibosome.x-anchor.x, ady = boundRibosome.y-anchor.y;
+        const alen = Math.hypot(adx,ady)||1;
+        const aux = adx/alen, auy = ady/alen;
+        const safeR = SIZE*0.46 - geo.R*0.85;
+        const ribDist = Math.hypot(boundRibosome.x-CX, boundRibosome.y-CY);
+        const tcx = CX-boundRibosome.x, tcy = CY-boundRibosome.y, tcLen = Math.hypot(tcx,tcy)||1;
+        const tux = tcx/tcLen, tuy = tcy/tcLen;
+        const blendW = Math.min(1, ribDist/safeR) * 0.6;
+        let dirX = aux*(1-blendW) + tux*blendW, dirY = auy*(1-blendW) + tuy*blendW;
+        const dLen = Math.hypot(dirX,dirY)||1; dirX/=dLen; dirY/=dLen;
+
+        const desiredOffset = boundRibosome.radius*2.2;
+        const rx = boundRibosome.x-CX, ry = boundRibosome.y-CY;
+        const b = 2*(rx*dirX + ry*dirY), c = rx*rx+ry*ry - safeR*safeR;
+        const disc = b*b - 4*c;
+        let maxT = desiredOffset;
+        if (disc >= 0){ maxT = Math.min(desiredOffset, Math.max(0, (-b+Math.sqrt(disc))/2)); }
+        holdX = boundRibosome.x + dirX*maxT;
+        holdY = boundRibosome.y + dirY*maxT;
+      }
+      charging.holdX = holdX; charging.holdY = holdY;
       setCard('Charged tRNA released','The tRNA charged with the amino acid is released by the synthetase, free to travel to the ribosome.');
       setHint('Charged tRNA released — <strong>Bind Codon</strong> comes next.'); }
   }
   else if (charging.step === 'RELEASING'){
     const t = Math.min(1, charging.stepT/CHARGE_RELEASE_FRAMES);
     const ease = 1 - Math.pow(1-t,3);
-    // Head toward the actual bound ribosome (wherever it landed) rather than
-    // a fixed dish spot — this also previews where Bind Codon picks up next.
-    let holdX = geo.cx, holdY = geo.cy - geo.R*2.6;
-    if (boundRibosome){
-      holdX = boundRibosome.x + boundRibosome.radius*2.0;
-      holdY = boundRibosome.y + boundRibosome.radius*2.0;
-    }
-    charging.trnaX = geo.leftNotch.x + (holdX-geo.leftNotch.x)*ease;
-    charging.trnaY = geo.leftNotch.y + (holdY-geo.leftNotch.y)*ease;
+    charging.trnaX = geo.leftNotch.x + (charging.holdX-geo.leftNotch.x)*ease;
+    charging.trnaY = geo.leftNotch.y + (charging.holdY-geo.leftNotch.y)*ease;
     if (t>=1){ charging.step='DONE'; charging.stepT=0;
       const bindBtn=document.getElementById('btnBind'); if(bindBtn) bindBtn.disabled=false; }
   }
@@ -907,7 +951,7 @@ function drawAnticodonBalls(x, y, R, anticodon, reveal){
     ctx.fillStyle=g; ctx.fill();
     ctx.strokeStyle='rgba(150,215,255,0.7)'; ctx.lineWidth=(R*0.03)/scaleX; ctx.stroke();
     if (showLetter && letters[i]){
-      ctx.font = `700 ${(R*0.30/scaleX).toFixed(1)}px 'Space Mono','Roboto Mono',monospace`;
+      ctx.font = `700 ${(R*0.30/scaleX).toFixed(1)}px ${uiMonoFont}`;
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillStyle='#04121e';
       ctx.fillText(letters[i], 0, R*0.01);
@@ -926,7 +970,7 @@ function drawCodonAnticodonMatch(anticodonBallX, anticodonBallY, ballR, codon, a
   if (!exportChain || !codon || alpha<=0.01) return;
   const cap = currentMrnaAnchorNode();
   const spacing = ballR*2.4;
-  const rowY = anticodonBallY + ballR*2.7; // codon row sits just below the anticodon row (which is already at the tRNA's bottom)
+  const rowY = anticodonBallY + ballR*2.7; // codon row sits below the anticodon row
   const rowX0 = anticodonBallX;
 
   ctx.save(); ctx.globalAlpha = alpha;
@@ -956,7 +1000,7 @@ function drawCodonAnticodonMatch(anticodonBallX, anticodonBallY, ballR, codon, a
     g.addColorStop(0,'rgba(190,250,225,0.96)'); g.addColorStop(1,'rgba(105,210,160,0.92)');
     ctx.fillStyle=g; ctx.fill();
     ctx.strokeStyle='rgba(150,235,255,0.6)'; ctx.lineWidth=ballR*0.1; ctx.stroke();
-    ctx.font=`700 ${(ballR*1.05).toFixed(1)}px 'Space Mono','Roboto Mono',monospace`;
+    ctx.font=`700 ${(ballR*1.05).toFixed(1)}px ${uiMonoFont}`;
     ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#04241a';
     ctx.fillText(codon[i]||'', p.x, p.y+ballR*0.02);
   }
@@ -1100,7 +1144,7 @@ function drawSynthetase(cx, cy, R, notchGlow){
 // read as distinct molecule tokens rather than plain floating text.
 function drawPillBadge(cx, cy, text, topRgb, botRgb, textColor, fontPx){
   ctx.save();
-  ctx.font = `700 ${fontPx.toFixed(1)}px 'Space Mono','Roboto Mono',monospace`;
+  ctx.font = `700 ${fontPx.toFixed(1)}px ${uiMonoFont}`;
   const padX = fontPx*0.55, h = fontPx*1.7;
   const w = ctx.measureText(text).width + padX*2;
   const x = cx - w/2, y = cy - h/2, r = h/2;
@@ -1245,7 +1289,8 @@ function startBinding(){
   const residue = charging.residue;
   const anticodon = residue ? codonToAnticodon(residue.codon) : '';
   const codon = residue ? residue.codon : '';
-  setCard('Anticodon meets codon', 'The charged tRNA travels to the ribosome\u2019s A site. Its anticodon (<strong>'+anticodon+'</strong>) pairs base-by-base, antiparallel, with the mRNA codon (<strong>'+codon+'</strong>) — A with U, G with C.');
+  const reversedCodon = codon.split('').reverse().join('');
+  setCard('Anticodon meets codon', 'The charged tRNA travels to the ribosome\u2019s A site. Its anticodon (<strong>'+anticodon+'</strong>) pairs base-by-base, antiparallel, with the mRNA codon (<strong>'+codon+'</strong>) — A with U, G with C. <em>(Reverse '+codon+' \u2192 '+reversedCodon+', then complement each base \u2192 '+anticodon+'.)</em>');
   setHint('Charged tRNA travels to the A site\u2026');
 }
 
@@ -1619,7 +1664,7 @@ function drawMrna(){
   });
 
   // codon beads (once translation started)
-  if (translationInitiationStarted){
+  if (translationInitiationStarted && !exportChain.codonAnchorIndex){
     const beads=codonBeadPositions(); const CODON={0:'A',1:'U',2:'G'};
     beads.forEach((b,i)=>{
       const isCodon=(i>=0&&i<=2), isG=(i===2), codonPos=i;
@@ -1639,7 +1684,7 @@ function drawMrna(){
         ctx.save(); ctx.beginPath(); ctx.setLineDash([nucR*0.008,nucR*0.010]);
         ctx.moveTo(b.x,labelY+nucR*0.020); ctx.lineTo(b.x,b.y-br*1.05);
         ctx.strokeStyle='rgba(255,225,140,0.28)'; ctx.lineWidth=nucR*0.004; ctx.stroke(); ctx.restore();
-        ctx.save(); ctx.font=`bold ${(nucR*0.032).toFixed(1)}px 'Space Mono','Roboto Mono',ui-monospace,monospace`;
+        ctx.save(); ctx.font=`bold ${(nucR*0.032).toFixed(1)}px ${uiMonoFont}`;
         ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='rgba(255,228,120,0.97)';
         ctx.shadowColor='rgba(255,200,80,0.75)'; ctx.shadowBlur=nucR*0.025; ctx.fillText(CODON[i],b.x,labelY); ctx.restore();
       }
@@ -1650,13 +1695,14 @@ function drawMrna(){
 }
 
 function drawRibosomeSubunit(cx, cy, R, seed, opts){
-  const { base, light, edge, lumps=8, lumpAmp=0.16, cleft=null, rotation=0 } = opts;
+  const { base, light, edge, lumps=8, lumpAmp=0.16, cleft=null, rotation=0, alpha=1 } = opts;
   let s=seed; const rnd=()=>{ s=(s*1103515245+12345)&0x7fffffff; return (s>>8)/0x7fffff; };
   const rgb=(a)=>`rgb(${a[0]},${a[1]},${a[2]})`, rgba=(a,al)=>`rgba(${a[0]},${a[1]},${a[2]},${al})`;
   const N=48, bumps=[];
   for(let i=0;i<lumps;i++) bumps.push({ang:rnd()*Math.PI*2,w:0.5+rnd()*0.9,amp:(0.5+rnd()*0.5)*lumpAmp});
   const radiusAt=(theta)=>{ let rr=1; for(const b of bumps){ let d=Math.abs(((theta-b.ang+Math.PI*3)%(Math.PI*2))-Math.PI); rr+=Math.cos(Math.min(Math.PI,d/b.w))*b.amp*0.5+b.amp*0.5*Math.exp(-(d*d)/(b.w*b.w)); } if(cleft!==null){ let d=Math.abs(((theta-cleft+Math.PI*3)%(Math.PI*2))-Math.PI); rr-=0.28*Math.exp(-(d*d)/0.18); } return rr; };
   ctx.save(); ctx.translate(cx,cy); if(rotation) ctx.rotate(rotation);
+  if (alpha < 1) ctx.globalAlpha = alpha;
   const glow=ctx.createRadialGradient(0,0,R*0.4,0,0,R*1.5);
   glow.addColorStop(0,rgba(light,0.20)); glow.addColorStop(1,rgba(light,0));
   ctx.beginPath(); ctx.arc(0,0,R*1.5,0,Math.PI*2); ctx.fillStyle=glow; ctx.fill();
@@ -1683,7 +1729,7 @@ function drawTranslationComplex(r){
   const smallX=r.x+s40.x*rad, smallY=r.y+s40.y*rad;
   const largeX=r.x+s60.x*rad, largeY=r.y+s60.y*rad;
   drawRibosomeSubunit(largeX,largeY,rad*1.15,6001,{base:[206,182,138],light:[232,212,168],edge:[245,232,200],lumps:9,lumpAmp:0.16});
-  drawRibosomeSubunit(smallX,smallY,rad*0.9,4002,{base:[220,198,150],light:[244,228,185],edge:[252,244,215],lumps:8,lumpAmp:0.18,
+  drawRibosomeSubunit(smallX,smallY,rad*0.9,4002,{base:[220,198,150],light:[244,228,185],edge:[252,244,215],lumps:8,lumpAmp:0.18,alpha:0.78,
     cleft: exportChain ? (()=>{ const a=currentMrnaAnchorNode(); return Math.atan2(a.y-smallY, a.x-smallX); })() : Math.PI/2});
   if((translation.step==='SMALL_SUBUNIT_BINDING'||translation.step==='SMALL_BOUND')&&exportChain){
     const cap=exportChain.nodes[0]; const dx=cap.x-smallX, dy=cap.y-smallY;
