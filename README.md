@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/repo-banner.png" alt="Karyon MK III Banner" width="100%">
+  <img src="assets/banner.png" alt="Karyon MK III Banner" width="100%">
 </p>
 
 # 🧬 Karyon MK III
