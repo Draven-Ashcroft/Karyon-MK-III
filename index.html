@@ -199,7 +199,6 @@
   .chain-bead.cls-acidic   { background:#ff6b6b; color:#2a0a0a; }
   .chain-bead.cls-basic    { background:#5fa8ff; color:#04101f; }
   .chain-bead.stop         { background:#8a8f9c; color:#fff; }
-  .chain-arrow { color:rgba(170,205,235,0.55); font-size:13px; }
   .codon-col { display:flex; flex-direction:column; align-items:center; gap:3px; padding:4px 3px; border-radius:9px; }
   .codon-col.active { background:rgba(150,215,255,0.12); box-shadow:0 0 0 1.5px rgba(150,215,255,0.6); }
   .codon-top { font:700 10px var(--ui-mono-font); color:rgba(190,218,245,0.8); letter-spacing:0.5px; }
@@ -690,12 +689,44 @@ function renderBubbleRow(justFilledIndex){
   }
 }
 
+// The subunit offsets (translation.large60S/small40S) are computed once,
+// from the docking approach direction at the cap, then frozen once
+// elongation begins — fine while the ribosome sits still, but as it
+// translocates along a curving strand, that frozen direction increasingly
+// stops matching the strand's actual local heading: the visible blob
+// drifts away from the strand even though boundRibosome.x/y (the real
+// tracked position) stays correct the whole time. Fix: store the offsets
+// as (magnitude, angle-relative-to-local-tangent) once, then re-derive
+// the actual x/y vector against the CURRENT local tangent at every
+// translocation step — same visual size/shape, but it turns with the
+// curve instead of pointing at a fixed compass direction forever.
+let subunitPolar = null;
+function localTangentAt(idx){
+  const nodes = exportChain.nodes;
+  const prev = nodes[Math.max(0,idx-1)], next = nodes[Math.min(nodes.length-1, idx+1)];
+  return Math.atan2(next.y-prev.y, next.x-prev.x);
+}
+function captureSubunitPolar(refAngle){
+  const s = translation.small40S, l = translation.large60S;
+  subunitPolar = {
+    smallMag: Math.hypot(s.x,s.y), smallAngleRel: Math.atan2(s.y,s.x) - refAngle,
+    largeMag: Math.hypot(l.x,l.y), largeAngleRel: Math.atan2(l.y,l.x) - refAngle,
+  };
+}
+function applySubunitPolar(newAngle){
+  if (!subunitPolar) return;
+  const a1 = newAngle + subunitPolar.smallAngleRel, a2 = newAngle + subunitPolar.largeAngleRel;
+  translation.small40S = { x: Math.cos(a1)*subunitPolar.smallMag, y: Math.sin(a1)*subunitPolar.smallMag };
+  translation.large60S = { x: Math.cos(a2)*subunitPolar.largeMag, y: Math.sin(a2)*subunitPolar.largeMag };
+}
+
 function unlockElongationUI(){
   const init = document.getElementById('initControls');
   const panel = document.getElementById('bubblePanel');
   if (init) init.style.display = 'none';
   if (panel) panel.classList.add('show');
   extendMrnaForChain();
+  captureSubunitPolar(localTangentAt(exportChain.codonAnchorIndex(0)));
   renderBubbleRow();
 }
 
@@ -864,6 +895,7 @@ function resetElongationUI(){
   translocation = { codonIndex:0 };
   polypeptide = []; peptideDir = { x:0, y:1 }; spentTrna = null;
   termination = { step:'IDLE', stepT:0 };
+  subunitPolar = null;
   const init = document.getElementById('initControls');
   const panel = document.getElementById('bubblePanel');
   const preview = document.getElementById('chainPreview');
@@ -1518,9 +1550,6 @@ function updateBonding(){
   if (bonding.step === 'PULSE'){
     if (bonding.stepT >= BOND_PULSE_FRAMES){
       bonding.step='TRANSLOCATE'; bonding.stepT=0;
-      bonding.startX=boundRibosome.x; bonding.startY=boundRibosome.y;
-      const nextAnchor = exportChain.nodes[exportChain.codonAnchorIndex(translocation.codonIndex+1)];
-      bonding.targetX=nextAnchor.x; bonding.targetY=nextAnchor.y;
       // E-site exit: continue outward along the line from the ribosome's
       // center through the tRNA's current position — the direction it's
       // already leaning, away from the ribosome body.
@@ -1536,8 +1565,21 @@ function updateBonding(){
   } else if (bonding.step === 'TRANSLOCATE'){
     const t = Math.min(1, bonding.stepT/TRANSLOCATE_FRAMES);
     const ease = 1 - Math.pow(1-t,3);
-    boundRibosome.x = bonding.startX + (bonding.targetX-bonding.startX)*ease;
-    boundRibosome.y = bonding.startY + (bonding.targetY-bonding.startY)*ease;
+    // Follow the strand's actual node-by-node path between this codon and
+    // the next, not a straight chord between the two endpoints. The strand
+    // curves through nodesPerCodon-1 intermediate points between codon
+    // anchors — a straight-line lerp cut across that curve, visibly
+    // straying off the strand mid-glide (worst around the midpoint,
+    // correct only at the very start/end) even though it always started
+    // and ended exactly on the strand.
+    const idxFrom = exportChain.codonAnchorIndex(translocation.codonIndex);
+    const idxTo = exportChain.codonAnchorIndex(translocation.codonIndex+1);
+    const pos = idxFrom + (idxTo-idxFrom)*ease;
+    const i0 = Math.floor(pos), i1 = Math.min(idxTo, i0+1);
+    const localT = pos-i0;
+    const na = exportChain.nodes[i0], nb = exportChain.nodes[i1];
+    boundRibosome.x = na.x + (nb.x-na.x)*localT;
+    boundRibosome.y = na.y + (nb.y-na.y)*localT;
     if (spentTrna){
       spentTrna.t++;
       const et = Math.min(1, spentTrna.t/TRNA_EXIT_FRAMES);
@@ -1550,6 +1592,14 @@ function updateBonding(){
       const justBonded = charging.residue;
       if (justBonded) polypeptide.push({ code:justBonded.code, name:justBonded.name, cls:justBonded.cls, codon:justBonded.codon });
       translocation.codonIndex++;
+      applySubunitPolar(localTangentAt(exportChain.codonAnchorIndex(translocation.codonIndex)));
+      // peptideDir was originally set equal to large60S's direction at
+      // Export time (see initPolypeptide) — keep them in sync now that
+      // large60S rotates with each translocation, or the chain would trail
+      // toward a tunnel-exit direction that's no longer where the tunnel
+      // actually is.
+      { const len = Math.hypot(translation.large60S.x, translation.large60S.y);
+        if (len > 0.05) peptideDir = { x: translation.large60S.x/len, y: translation.large60S.y/len }; }
       elongIndex++;
       bonding = { step:'IDLE', stepT:0 };
       charging = { step:'IDLE', stepT:0 };
@@ -1667,21 +1717,52 @@ function initPolypeptide(){
 }
 
 const PEPTIDE_OSC_AMP = 0.10, PEPTIDE_OSC_SPEED = 0.045, PEPTIDE_OSC_PHASE = 0.55;
-function peptideBeadPos(i){
-  if (!boundRibosome) return {x:0,y:0};
+const PEPTIDE_CURL_RATE = 0.40; // radians turned per residue — a visible coil, not a tight knot
+
+// Walks the coiled backbone from the tunnel exit out to bead i, one
+// residue-spacing step at a time, curling a fixed amount per step and
+// biasing back toward the dish center once nearing its edge. Chains used
+// to be placed in a single straight line, which was fine at the old max
+// length but now (up to 9 residues) could run straight past the dish's
+// own circular boundary — the canvas itself is a circle (CSS
+// border-radius:50%), so anything past that edge doesn't just look bad,
+// it's actually clipped off and invisible. Returns the bead's position
+// plus the local heading there, so the existing oscillation ripple can
+// stay perpendicular to wherever the chain is actually curving.
+function peptideBackbonePoint(i){
   const origin = large60SPos(boundRibosome);
   const spacing = boundRibosome.radius*0.62, base = boundRibosome.radius*1.35;
-  let d = base + i*spacing;
+  const containR = nucR*0.92;
+  let x = origin.x, y = origin.y;
+  let angle = Math.atan2(peptideDir.y, peptideDir.x);
+  for (let step=0; step<=i; step++){
+    const stepLen = step===0 ? base : spacing;
+    x += Math.cos(angle)*stepLen; y += Math.sin(angle)*stepLen;
+    const distFromCenter = Math.hypot(x-CX, y-CY);
+    const towardCenter = Math.atan2(CY-y, CX-x);
+    let diff = towardCenter-angle; while(diff>Math.PI) diff-=Math.PI*2; while(diff<-Math.PI) diff+=Math.PI*2;
+    const edgePush = Math.max(0, Math.min(1, (distFromCenter-containR*0.6)/(containR*0.4)));
+    angle += PEPTIDE_CURL_RATE + diff*0.6*edgePush;
+  }
+  return { x, y, angle };
+}
+
+function peptideBeadPos(i){
+  if (!boundRibosome) return {x:0,y:0};
+  const bp = peptideBackbonePoint(i);
+  let x = bp.x, y = bp.y;
   if (typeof termination !== 'undefined' && termination.step !== 'IDLE' && termination.step !== 'RF_ARRIVE'){
     const t = termination.step==='HYDROLYSIS' ? Math.min(1, termination.stepT/HYDROLYSIS_FRAMES) : 1;
-    d += t * boundRibosome.radius*3.5; // detaches and drifts away once hydrolysis begins
+    const driftD = t * boundRibosome.radius*3.5; // detaches and drifts away once hydrolysis begins
+    x += Math.cos(bp.angle)*driftD; y += Math.sin(bp.angle)*driftD;
   }
-  // Gentle wave along the chain, perpendicular to its direction — damped
+  // Gentle wave along the chain, perpendicular to its LOCAL heading (not
+  // the fixed exit direction, since the backbone now curves) — damped
   // near the tunnel exit (i=0) so it reads like a rope fixed at one end
   // rather than the whole chain swinging rigidly.
-  const perpX = -peptideDir.y, perpY = peptideDir.x;
+  const perpX = -Math.sin(bp.angle), perpY = Math.cos(bp.angle);
   const osc = Math.sin(animT*PEPTIDE_OSC_SPEED + i*PEPTIDE_OSC_PHASE) * PEPTIDE_OSC_AMP * boundRibosome.radius * Math.min(1, i*0.6);
-  return { x: origin.x + peptideDir.x*d + perpX*osc, y: origin.y + peptideDir.y*d + perpY*osc };
+  return { x: x + perpX*osc, y: y + perpY*osc };
 }
 
 function drawPolypeptideChain(){
@@ -1941,11 +2022,12 @@ function drawMrna(){
     });
   }
 
-  // m7G cap drawn BEFORE the codon labels below, not after — it used to
-  // draw last (on top of everything), and its halo/hexagon could sit close
-  // enough to the first residue's label to wash it out depending on the
-  // strand's exact wander shape that session. Text should always win over
-  // decorative background, not the other way round.
+  // m7G cap drawn before the codon dots below (not after) so any decorative
+  // background element always sits under the informational dots, not over
+  // them. The dots themselves no longer need this for legibility — they're
+  // small filled circles now, not text, and the UTR gap in
+  // extendMrnaForChain() already keeps Met's dot clear of the cap's halo —
+  // but background-before-foreground is the right z-order regardless.
   drawM7GCap(nodes[0].x, nodes[0].y, nucR*0.055);
 
   // Fixed "processed mRNA" codon indicators: exactly CHAIN_LEN+1 dots
@@ -2221,7 +2303,7 @@ function render(){
     if(hoverStateT>=HOVER_FRAMES){
       mrnaBindState='TRANSLATING';
       if(boundRibosome) boundRibosome.state=RIBOSOME_BOUND;
-      setHint('Click <span class="geo-glyph">⌖</span> to magnify the ribosome');
+      setHint('Click <span class="geo-glyph">⌖</span> to begin translation initiation');
       setCard('mRNA docked','The mRNA is now positioned at the ribosome. Click <span class="geo-glyph">⌖</span> to begin translation initiation.');
     }
   }
