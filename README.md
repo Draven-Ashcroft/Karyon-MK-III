@@ -2,20 +2,21 @@
   <img src="assets/repo-banner.png" alt="Karyon MK III Banner" width="100%">
 </p>
 
-# 🧬 Karyon MK III – Amino Acid Synthesizer
+# 🧬 Karyon MK III
 
-**Interactive Visualization of Protein Translation**
+**Interactive Amino Acid Synthesizer**
 
 ---
 
 ### 📖 Overview
-**Karyon MK III** is an open-source educational simulator that visualizes the molecular mechanics of protein synthesis. It translates complex biological concepts into an interactive, browser-based experience.
+An interactive HTML simulator demonstrating protein translation through ribosome movement, mRNA decoding, tRNA recognition, and polypeptide chain synthesis.
 
 ### ✨ Features
-* **Ribosome Simulation**: Interactive modeling of mRNA translation and ribosomal decoding.
-* **Molecular Dynamics**: Real-time tRNA recognition, codon pairing, and amino acid chain elongation.
-* **Translation Stages**: Dedicated modules for Initiation, Elongation, Translocation, and Termination.
-* **Responsive Design**: Optimized for classroom instruction and self-study.
+- Ribosome Translocation
+- Codon–Anticodon Recognition
+- tRNA Selection
+- Polypeptide Chain Elongation
+- Interactive Translation Controls
 
 ---
 
@@ -27,5 +28,7 @@ GPL-3.0
 
 ---
 
-### 🙏 Acknowledgements
-Developed with technical assistance from Anthropic, OpenAI, Google, Moonshot AI, and DeepSeek. Inspired by NCERT Biology and modern scientific visualization standards.
+### 🙏 Credits
+**Claude:** Code Architecture  
+**Replit:** Debugging & Enhancement  
+**OpenAI:** Debugging & Prompt Refinement
