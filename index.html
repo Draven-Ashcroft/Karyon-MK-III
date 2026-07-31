@@ -16,8 +16,8 @@
   }
   .header { text-align:center; margin-bottom:12px; margin-top:2px; position:relative; }
   .eyebrow { font-family:var(--ui-mono-font); font-size:clamp(15px,4.2vw,24px); font-weight:700; letter-spacing:0.5px; color:rgba(220,245,255,0.95); margin-bottom:5px; }
-  .title { font-size:clamp(12px,3.2vw,17px); font-weight:400; color:rgba(0,200,255,0.82); letter-spacing:0.3px; }
-  .subtitle { font-size:clamp(11px,2.6vw,13px); color:rgba(160,220,255,0.72); font-weight:400; letter-spacing:0.6px; margin-top:4px; }
+  .title { font-size:clamp(12px,3.2vw,17px); font-weight:400; color:rgba(226,234,244,0.85); letter-spacing:0.3px; }
+  .subtitle { font-size:clamp(11px,2.6vw,13px); color:rgba(188,198,212,0.62); font-weight:400; letter-spacing:0.6px; margin-top:4px; }
   .dish-wrap { position:relative; flex-shrink:0; }
   canvas.main-canvas { display:block; border-radius:50%; cursor:crosshair; }
 
@@ -109,7 +109,6 @@
     transition:transform 0.15s, border-color 0.15s;
   }
   .bubble:active { transform:scale(0.92); }
-  .bubble.locked { opacity:0.32; cursor:not-allowed; border-color:rgba(255,255,255,0.12); }
   .bubble.filled { border-width:2px; color:#0a1420; font-size:10.5px; }
   .bubble.filled.cls-nonpolar { background:#f5d24a; border-color:#c9a52c; }
   .bubble.filled.cls-polar    { background:#5fd88a; border-color:#2f9e57; }
@@ -360,9 +359,7 @@ const RIBOSOME_IDLE = 'idle', RIBOSOME_BOUND = 'bound';
 let ribosomes = null;
 function initRibosomes(){
   const spots = [
-    { x: CX + nucR*0.42, y: CY - nucR*0.46 },
-    { x: CX + nucR*0.60, y: CY + nucR*0.28 },
-    { x: CX - nucR*0.10, y: CY - nucR*0.60 },
+    { x: CX + nucR*0.60, y: CY + nucR*0.28 }, // right side — the one kept
   ];
   ribosomes = spots.map((s,i) => ({
     x:s.x, y:s.y, radius: nucR*0.11, state: RIBOSOME_IDLE,
@@ -408,6 +405,7 @@ function tapAt(px, py){
   for (const r of ribosomes){
     if (Math.hypot(px - r.x, py - r.y) <= r.radius*1.5){
       boundRibosome = r;
+      r.homeX = r.x; r.homeY = r.y; // original docking spot, captured before translocation moves r.x/y
       mrnaBindState = 'DOCKING'; dockStateT = 0;
       const cap = exportChain.nodes[0];
       const surf = ribosomeHeadSurfacePoint(r, cap.rax, cap.ray);
@@ -575,7 +573,7 @@ function updateTranslation(){
       if(d<0.05 || translation.stepT>JOIN_FRAMES){
         translation.step='EIGHTYS_FORMED'; translation.stepT=0; translation.eightyS=true;
         showTranslationCaption('80S ribosome formed');
-        setCard('80S ribosome assembled','The <strong>60S subunit</strong> joined the <strong>40S</strong>, sandwiching the mRNA between them to form the complete <strong>80S ribosome</strong>.');
+        setCard('80S ribosome assembled','The <strong>60S subunit</strong> joined the <strong>40S</strong>, forming the complete <strong>80S ribosome</strong> — the mRNA threads through a channel mainly within the <strong>40S</strong>, at the interface between the two subunits.');
       }
     }
   }
@@ -671,14 +669,18 @@ function renderBubbleRow(justFilledIndex){
   const row = document.getElementById('bubbleRow');
   if (!row) return;
   row.innerHTML = '';
-  for (let i=0;i<CHAIN_LEN;i++){
+  // Bubbles at/after chainLockedFrom sit past an already-placed stop codon
+  // — they'll never be reachable by translation, so they're removed from
+  // the row entirely (not just disabled) rather than left as dead-looking
+  // clutter. Placing the stop earlier and clearing it immediately restores
+  // them, since chainLockedFrom is recomputed from scratch every change.
+  for (let i=0;i<chainLockedFrom;i++){
     const slot = chainSlots[i];
-    const locked = i >= chainLockedFrom;
     const btn = document.createElement('button');
-    btn.className = 'bubble' + (locked?' locked':'') + (slot?' filled '+(slot.stop?'stop':'cls-'+slot.cls):'')
+    btn.className = 'bubble' + (slot?' filled '+(slot.stop?'stop':'cls-'+slot.cls):'')
       + (i===justFilledIndex ? ' pop' : '');
     btn.textContent = slot ? (slot.stop ? '■' : slot.code) : String(i+1);
-    btn.disabled = locked || chainExported;
+    btn.disabled = chainExported;
     btn.addEventListener('click', ()=>openBubblePopup(i));
     row.appendChild(btn);
   }
@@ -1083,7 +1085,7 @@ function drawAnticodonBalls(x, y, R, anticodon, reveal){
 // its first — a straight side-by-side line-up would misrepresent this.
 function drawCodonAnticodonMatch(anticodonBallX, anticodonBallY, ballR, codon, alpha){
   if (!exportChain || !codon || alpha<=0.01) return;
-  const cap = currentMrnaAnchorNode();
+  const cap = activeMrnaAnchorNode();
   const spacing = ballR*2.4;
   const rowY = anticodonBallY + ballR*2.7; // codon row sits below the anticodon row
   const rowX0 = anticodonBallX;
@@ -1419,12 +1421,17 @@ function startBinding(){
   if (!boundRibosome || !exportChain) return;
   binding = { step:'TRAVEL', stepT:0 };
   binding.startX = charging.trnaX; binding.startY = charging.trnaY;
-  const s40 = translation.small40S;
-  const smallX = boundRibosome.x + s40.x*boundRibosome.radius, smallY = boundRibosome.y + s40.y*boundRibosome.radius;
-  const cap = currentMrnaAnchorNode();
-  const cleftAngle = Math.atan2(cap.y-smallY, cap.x-smallX); // toward the mRNA-facing side of the small subunit
-  binding.targetX = smallX + Math.cos(cleftAngle)*boundRibosome.radius*0.55;
-  binding.targetY = smallY + Math.sin(cleftAngle)*boundRibosome.radius*0.55;
+  const cap = activeMrnaAnchorNode();
+  // Land the anticodon balls — not the icon's raw center — on the mRNA
+  // codon node, since that's the part actually meant to pair with it.
+  // Must match the size drawChargingScene actually renders at once DOCKED
+  // (boundRibosome.radius*0.8, see its trnaR/travelT easing) — targeting
+  // with the synthetase-relative charging size instead left the anticodon
+  // balls landing short of (or past) the codon by the size difference.
+  const trnaR = boundRibosome.radius * 0.8;
+  const lm = trnaLandmarks(trnaR);
+  binding.targetX = cap.x - lm.jx;
+  binding.targetY = cap.y - lm.anticodonBallY;
   const btn = document.getElementById('btnBind'); if (btn) btn.disabled = true;
   const residue = charging.residue;
   const anticodon = residue ? codonToAnticodon(residue.codon) : '';
@@ -1485,6 +1492,28 @@ function currentMrnaAnchorNode(){
   return exportChain.nodes[0];
 }
 
+// The codon whose amino acid is actively being charged/bound right now —
+// same activeSeqIdx logic renderChainPreview uses for the bubble highlight.
+// Differs from translocation.codonIndex (the ribosome's actual physical
+// position) specifically DURING a charge/bind/bond cycle: codonIndex only
+// advances once translocation finishes, so mid-cycle it still names the
+// PREVIOUS codon. Anything that should track the currently-highlighted
+// residue (the A-site selector ring, the tRNA's landing target, the
+// codon-anticodon stub) needs this, not currentMrnaAnchorNode() — which
+// intentionally stays physical-position-based for things anchored to the
+// ribosome itself (e.g. the small subunit's mRNA-facing notch).
+function activeCodonK(){
+  return (chainExported && charging.step!=='IDLE') ? elongIndex+1 : translocation.codonIndex;
+}
+function activeMrnaAnchorNode(){
+  if (!exportChain) return {x:0,y:0};
+  if (exportChain.codonAnchorIndex){
+    const idx = exportChain.codonAnchorIndex(activeCodonK());
+    return exportChain.nodes[idx] || exportChain.nodes[0];
+  }
+  return exportChain.nodes[0];
+}
+
 // Builds the "processed mRNA" geometry once, as soon as the bubble panel
 // appears — not deferred to Export. It's always exactly CHAIN_LEN+1 codon
 // positions now (Met + CHAIN_LEN chosen residues, the last always a stop
@@ -1540,7 +1569,7 @@ function startBonding(){
   if (bonding.step !== 'IDLE') return;
   bonding = { step:'PULSE', stepT:0 };
   const btn=document.getElementById('btnBond'); if (btn) btn.disabled=true;
-  setCard('Peptide bond forms', 'The ribosome catalyzes a peptide bond between the new amino acid and the growing chain. The now-empty tRNA leaves, and the ribosome moves one codon further along the fixed mRNA.');
+  setCard('Peptide bond forms', 'The <strong>rRNA in the 60S subunit</strong> — acting as a ribozyme, not a protein enzyme — catalyzes a peptide bond between the new amino acid and the growing chain. The now-deacylated tRNA shifts to the <strong>E site</strong> and is released, and the ribosome moves one codon further along the fixed mRNA.');
   setHint('Peptide bond forming\u2026');
 }
 
@@ -1753,8 +1782,39 @@ function peptideBeadPos(i){
   let x = bp.x, y = bp.y;
   if (typeof termination !== 'undefined' && termination.step !== 'IDLE' && termination.step !== 'RF_ARRIVE'){
     const t = termination.step==='HYDROLYSIS' ? Math.min(1, termination.stepT/HYDROLYSIS_FRAMES) : 1;
-    const driftD = t * boundRibosome.radius*3.5; // detaches and drifts away once hydrolysis begins
-    x += Math.cos(bp.angle)*driftD; y += Math.sin(bp.angle)*driftD;
+    const desiredDrift = t * boundRibosome.radius*5.5; // detaches and drifts away once hydrolysis begins (bumped from 3.5x — chain was still brushing the mRNA at the old distance)
+    // Drift every bead along the SAME shared direction (peptideDir), not each
+    // bead's own local backbone angle (bp.angle). bp.angle differs slightly
+    // bead-to-bead because the chain curls as it grows; with a drift distance
+    // this large, even a small per-bead angle difference gets amplified into
+    // a large positional gap, tearing the chain apart into long threads
+    // instead of it drifting away intact. A single shared angle keeps every
+    // bead's drift vector identical, so the released chain moves as one
+    // rigid body.
+    const driftAngle = Math.atan2(peptideDir.y, peptideDir.x);
+    const dx = Math.cos(driftAngle), dy = Math.sin(driftAngle);
+    // Cap the drift distance so the farthest-reaching bead in the chain
+    // never exceeds the dish's own containment boundary — a rigid shift can
+    // otherwise carry beads straight past the dish edge (silently clipped by
+    // the circular canvas) depending on which way peptideDir happens to
+    // point that session, the same category of bug as the ribosome's old
+    // disassembly targets. Solved properly via the actual geometry (max t
+    // before a point traveling in direction (dx,dy) exits a circle of
+    // radius safeR) rather than picking a number that merely tested safe.
+    const containR = nucR*0.92, safeR = containR - boundRibosome.radius*0.35;
+    let maxSafeDrift = desiredDrift;
+    for (let j=0;j<polypeptide.length;j++){
+      const pj = peptideBackbonePoint(j);
+      const px = pj.x-CX, py = pj.y-CY;
+      const b = px*dx+py*dy, c = px*px+py*py-safeR*safeR;
+      const disc = b*b-c;
+      if (disc>=0){
+        const tMax = Math.max(0, -b+Math.sqrt(disc));
+        if (tMax < maxSafeDrift) maxSafeDrift = tMax;
+      }
+    }
+    const driftD = maxSafeDrift;
+    x += dx*driftD; y += dy*driftD;
   }
   // Gentle wave along the chain, perpendicular to its LOCAL heading (not
   // the fixed exit direction, since the backbone now curves) — damped
@@ -1914,11 +1974,26 @@ function updateTermination(){
     }
   } else if (termination.step === 'DISASSEMBLE'){
     const t = Math.min(1, termination.stepT/DISASSEMBLE_FRAMES);
-    translation.small40S.x += (-1.7 - translation.small40S.x)*0.045;
-    translation.small40S.y += (-0.7 - translation.small40S.y)*0.045;
-    translation.large60S.x += (2.0 - translation.large60S.x)*0.045;
-    translation.large60S.y += (1.2 - translation.large60S.y)*0.045;
+    // Stay attached — mirrors the same (small at origin, large 1.15 below)
+    // relationship used when 60S first joins 40S, rather than the old
+    // targets (-1.7,-0.7)/(2.0,1.2) which pulled them apart into two
+    // separate wandering pieces and, combined with returning home, sent
+    // the large subunit's reach past the dish's containment boundary
+    // (313.3 vs a 276.0 safety radius in one measured case) — clipped
+    // visibly at the dish edge.
+    translation.small40S.x += (0 - translation.small40S.x)*0.045;
+    translation.small40S.y += (0 - translation.small40S.y)*0.045;
+    translation.large60S.x += (0 - translation.large60S.x)*0.045;
+    translation.large60S.y += (1.15 - translation.large60S.y)*0.045;
+    // Ease back to the ribosome's original docking spot, so it visibly
+    // detaches from the finished chain and returns home rather than being
+    // left sitting at the stop codon it translated up to.
+    if (boundRibosome.homeX!==undefined){
+      boundRibosome.x += (boundRibosome.homeX - boundRibosome.x)*0.045;
+      boundRibosome.y += (boundRibosome.homeY - boundRibosome.y)*0.045;
+    }
     if (t>=1){
+      if (boundRibosome.homeX!==undefined){ boundRibosome.x = boundRibosome.homeX; boundRibosome.y = boundRibosome.homeY; }
       termination.step='DONE'; termination.stepT=0;
       setCard('Translation complete', 'The polypeptide has been fully synthesized and released. The ribosome has recycled its subunits, ready to translate another mRNA.');
       setHint('Translation complete.');
@@ -1966,8 +2041,19 @@ function drawM7GCap(x, y, R){
 
 function drawMrna(){
   if (!exportChain) return;
-  const nodes = exportChain.nodes;
-  if (!nodes || nodes.length<2) return;
+  const fullNodes = exportChain.nodes;
+  if (!fullNodes || fullNodes.length<2) return;
+  // If a stop codon was placed before the last slot, everything past it —
+  // strand, poly-A tail, and codon dots alike — is visually cut away here.
+  // Slicing from index 0 preserves each kept node's original index, so
+  // codonAnchorIndex()'s absolute indices below still line up correctly;
+  // nothing downstream needs to know this was truncated.
+  const lastVisibleCodon = Math.min(CHAIN_LEN, chainLockedFrom);
+  let nodes = fullNodes;
+  if (chainLockedFrom < CHAIN_LEN && exportChain.codonAnchorIndex){
+    nodes = fullNodes.slice(0, exportChain.codonAnchorIndex(lastVisibleCodon)+1);
+  }
+  if (nodes.length<2) return;
   const buildPath=()=>{
     ctx.beginPath(); ctx.moveTo(nodes[0].x,nodes[0].y);
     for(let i=1;i<nodes.length-1;i++){ const mx=(nodes[i].x+nodes[i+1].x)/2, my=(nodes[i].y+nodes[i+1].y)/2; ctx.quadraticCurveTo(nodes[i].x,nodes[i].y,mx,my); }
@@ -1999,25 +2085,44 @@ function drawMrna(){
     const beads=codonBeadPositions(); const CODON={0:'A',1:'U',2:'G'};
     beads.forEach((b,i)=>{
       const isCodon=(i>=0&&i<=2), isG=(i===2), codonPos=i;
-      const locked=translation.augFound&&isG;
       const scanningHere=(translation.step==='SCANNING'&&translation.scanBead===codonPos&&isCodon);
       const revealed=isCodon&&((translation.augLetters||0)>codonPos);
       const br=nucR*(isG?0.030:0.024);
       ctx.save(); const g=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,br);
-      if(locked){ g.addColorStop(0,'rgba(255,240,80,1)'); g.addColorStop(1,'rgba(255,205,40,0.95)'); ctx.shadowColor='rgba(255,225,60,0.95)'; ctx.shadowBlur=nucR*0.09; }
-      else if(revealed){ g.addColorStop(0,'rgba(240,215,130,0.95)'); g.addColorStop(1,'rgba(215,175,80,0.85)'); ctx.shadowColor='rgba(230,190,90,0.5)'; ctx.shadowBlur=nucR*0.03; }
+      if(revealed){
+        // Confirmed letter — a small, calm dot with no pulsing ring or
+        // heavy glow (that persistent pulse was the "stays glowing"
+        // complaint). The pin drawn below carries the letter instead.
+        g.addColorStop(0,'rgba(240,215,130,0.95)'); g.addColorStop(1,'rgba(215,175,80,0.85)'); ctx.shadowColor='rgba(230,190,90,0.4)'; ctx.shadowBlur=nucR*0.02;
+      }
       else { g.addColorStop(0,'rgba(150,240,200,0.95)'); g.addColorStop(1,'rgba(70,200,140,0.9)'); ctx.shadowColor='rgba(90,220,160,0.5)'; ctx.shadowBlur=nucR*0.03; }
       ctx.beginPath(); ctx.arc(b.x,b.y,br,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
-      if(scanningHere||locked){ ctx.beginPath(); ctx.arc(b.x,b.y,br*(1.5+0.3*Math.sin(animT*0.15)),0,Math.PI*2); ctx.strokeStyle=(locked||revealed)?'rgba(255,215,110,0.7)':'rgba(150,240,200,0.6)'; ctx.lineWidth=nucR*0.006; ctx.shadowBlur=0; ctx.stroke(); }
+      if(scanningHere && !revealed){ ctx.beginPath(); ctx.arc(b.x,b.y,br*(1.5+0.3*Math.sin(animT*0.15)),0,Math.PI*2); ctx.strokeStyle='rgba(150,240,200,0.6)'; ctx.lineWidth=nucR*0.006; ctx.shadowBlur=0; ctx.stroke(); }
       ctx.restore();
       if(isCodon&&revealed){
-        const labelY=b.y-br*3.4;
-        ctx.save(); ctx.beginPath(); ctx.setLineDash([nucR*0.008,nucR*0.010]);
-        ctx.moveTo(b.x,labelY+nucR*0.020); ctx.lineTo(b.x,b.y-br*1.05);
-        ctx.strokeStyle='rgba(255,225,140,0.28)'; ctx.lineWidth=nucR*0.004; ctx.stroke(); ctx.restore();
-        ctx.save(); ctx.font=`bold ${(nucR*0.032).toFixed(1)}px ${uiMonoFont}`;
-        ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='rgba(255,228,120,0.97)';
-        ctx.shadowColor='rgba(255,200,80,0.75)'; ctx.shadowBlur=nucR*0.025; ctx.fillText(CODON[i],b.x,labelY); ctx.restore();
+        // Floating pin, letter inside — settles into a gentle idle bob
+        // (phase offset per letter) rather than the old dashed leader
+        // line + pulsing dot, so a confirmed AUG reads as "done", not
+        // "still urgently happening".
+        const bob = Math.sin(animT*0.05 + i*1.7) * nucR*0.010;
+        const pinR = nucR*0.027;
+        const stemLen = nucR*0.075;
+        const px = b.x, py = b.y - br*2.4 - stemLen - pinR + bob;
+        const tipY = py + pinR + stemLen*0.4;
+        ctx.save();
+        ctx.beginPath(); ctx.moveTo(px, tipY); ctx.lineTo(b.x, b.y-br*1.05);
+        ctx.strokeStyle='rgba(255,215,110,0.35)'; ctx.lineWidth=nucR*0.004; ctx.stroke();
+        const pg=ctx.createRadialGradient(px,py,0,px,py,pinR*1.3);
+        pg.addColorStop(0,'rgba(255,238,140,0.98)'); pg.addColorStop(1,'rgba(235,180,60,0.95)');
+        ctx.fillStyle=pg; ctx.shadowColor='rgba(255,205,60,0.5)'; ctx.shadowBlur=nucR*0.02;
+        ctx.beginPath(); ctx.arc(px,py,pinR,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(px-pinR*0.5,py+pinR*0.7); ctx.lineTo(px,tipY); ctx.lineTo(px+pinR*0.5,py+pinR*0.7); ctx.closePath(); ctx.fill();
+        ctx.shadowBlur=0;
+        ctx.beginPath(); ctx.arc(px,py,pinR,0,Math.PI*2); ctx.strokeStyle='rgba(180,130,20,0.6)'; ctx.lineWidth=nucR*0.003; ctx.stroke();
+        ctx.font=`bold ${(nucR*0.030).toFixed(1)}px ${uiMonoFont}`;
+        ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#2a1a00';
+        ctx.fillText(CODON[i], px, py);
+        ctx.restore();
       }
     });
   }
@@ -2042,7 +2147,7 @@ function drawMrna(){
   // as a missing/reordered codon). A dot sitting exactly at its own node
   // has no equivalent ambiguity, regardless of the strand's exact shape.
   if (exportChain.codonAnchorIndex){
-    for (let k=0; k<=CHAIN_LEN; k++){
+    for (let k=0; k<=lastVisibleCodon; k++){
       const idx = exportChain.codonAnchorIndex(k);
       const n = nodes[idx]; if (!n) continue;
       let filled, isStop, cls;
@@ -2052,24 +2157,36 @@ function drawMrna(){
         filled = !!s; isStop = filled && s.stop; cls = filled ? s.cls : null;
       }
       const r = nucR*0.026;
-      let rgb;
-      if (!filled) rgb = [225,232,240];        // default: off-white, unfilled
-      else if (isStop) rgb = [190,195,205];    // stop codon: neutral grey, not a chemical class
-      else rgb = AA_CLASS_RGB[cls] || [225,232,240];
+      if (!filled){
+        // Vacant slot — a thin hollow ring, no fill and no glow, so it
+        // reads as "nothing chosen yet" rather than a pale, glowing solid
+        // dot that (bunched with its neighbours) looked more like a sore
+        // than an empty placeholder.
+        ctx.save();
+        ctx.beginPath(); ctx.arc(n.x,n.y,r,0,Math.PI*2);
+        ctx.strokeStyle='rgba(140,165,195,0.55)'; ctx.lineWidth=nucR*0.008; ctx.stroke();
+        ctx.restore();
+        continue;
+      }
+      const rgb = isStop ? [190,195,205] : (AA_CLASS_RGB[cls] || [225,232,240]); // stop: neutral grey, not a chemical class
 
       ctx.save();
       const g = ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,r*1.05);
       g.addColorStop(0, `rgba(${Math.min(255,rgb[0]+35)},${Math.min(255,rgb[1]+35)},${Math.min(255,rgb[2]+35)},0.98)`);
       g.addColorStop(1, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.92)`);
       ctx.beginPath(); ctx.arc(n.x,n.y,r,0,Math.PI*2); ctx.fillStyle=g;
-      ctx.shadowColor = filled ? `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.55)` : 'rgba(255,255,255,0.25)';
+      ctx.shadowColor = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.55)`;
       ctx.shadowBlur = nucR*0.018;
       ctx.fill();
-      // Gold ring on whichever codon the ribosome currently occupies —
-      // only meaningful once elongation has actually started (Export'd
-      // and translocation is tracking real progress), not during the
-      // pre-Export builder phase.
-      if (chainExported && k === translocation.codonIndex){
+      // Gold ring on the codon whose amino acid is currently active. While
+      // a residue is mid charge/bind/bond, translocation.codonIndex still
+      // points at the PREVIOUS codon (it only advances once translocation
+      // finishes) — same activeSeqIdx logic as renderChainPreview's bubble
+      // highlight, so the ring and the active bubble always agree. Once
+      // nothing is actively in progress, falls back to the ribosome's
+      // actual physical position.
+      const activeK = activeCodonK();
+      if (chainExported && k === activeK){
         ctx.beginPath(); ctx.arc(n.x,n.y,r*1.7,0,Math.PI*2);
         ctx.strokeStyle='rgba(255,215,110,0.85)'; ctx.lineWidth=nucR*0.007; ctx.shadowBlur=0; ctx.stroke();
       }
@@ -2118,9 +2235,12 @@ function drawTranslationComplex(r){
   // emerging from something. peptideDir is fixed for the life of the
   // chain, so this notch doesn't swim around frame to frame.
   const exitCleft = polypeptide.length ? Math.atan2(peptideDir.y, peptideDir.x) : null;
-  drawRibosomeSubunit(largeX,largeY,rad*1.15,6001,{base:[206,182,138],light:[232,212,168],edge:[245,232,200],lumps:9,lumpAmp:0.16,cleft:exitCleft});
+  // Small (40S) subunit painted first so the large (60S) — the major
+  // subunit — renders on top of it wherever the two overlap, matching how
+  // the 80S complex is conventionally drawn (60S sitting over 40S).
   drawRibosomeSubunit(smallX,smallY,rad*0.9,4002,{base:[220,198,150],light:[244,228,185],edge:[252,244,215],lumps:8,lumpAmp:0.18,alpha:0.78,
     cleft: exportChain ? (()=>{ const a=currentMrnaAnchorNode(); return Math.atan2(a.y-smallY, a.x-smallX); })() : Math.PI/2});
+  drawRibosomeSubunit(largeX,largeY,rad*1.15,6001,{base:[206,182,138],light:[232,212,168],edge:[245,232,200],lumps:9,lumpAmp:0.16,cleft:exitCleft});
   if((translation.step==='SMALL_SUBUNIT_BINDING'||translation.step==='SMALL_BOUND')&&exportChain){
     const cap=exportChain.nodes[0]; const dx=cap.x-smallX, dy=cap.y-smallY;
     const near=1-Math.min(1,Math.hypot(dx,dy)/(rad*1.6));
